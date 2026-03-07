@@ -256,3 +256,6 @@ admin/dist/
 backend/venv/
 admin/node_modules/
 test/node_modules/
+
+# Do not ignore frontend source libraries
+!**/src/lib/
