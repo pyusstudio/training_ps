@@ -1,0 +1,11 @@
+This is the backend project for Reflex training which gets data from frontend and rates salesman's response and generate customer query
+
+- Python
+- Wisper
+- Websocket
+- Custom test with prompts for verfing accuracy of salesman's response
+- Session based data storage for each customer
+- rate session based on customer query and salesman's response
+- Customer query are predfined smaples
+
+Look into document Reflex Training System.pdf and generate a proper documentation for Implenation of backend

@@ -15,7 +15,7 @@ We have organized detailed documentation for every component of the system. Plea
 ### 🛠️ Project Documentation
 - **[Backend](docs/BACKEND.md)**: FastAPI implementation, AI scoring logic, and database schema.
 - **[Admin Dashboard](docs/ADMIN.md)**: Features and setup for the instructor monitoring panel.
-- **[Test Console](docs/TEST_CONSOLE.md)**: Developer tool for simulating sessions and ad-hoc scoring.
+- **[Training App](docs/TRAINING_APP.md)**: Production-grade interface for simulating sessions and ad-hoc scoring.
 - **[ML Pipeline](docs/ML_PIPELINE.md)**: Scripts and workflow for training custom intent classifiers.
 
 ---
@@ -31,7 +31,7 @@ docker-compose up
 
 - **Backend API**: `http://localhost:8000`
 - **Admin Dashboard**: `http://localhost:5173`
-- **Test Console**: `http://localhost:5174`
+- **Training App**: `http://localhost:5174`
 
 **Default Admin Credentials**:
 - **Email**: `admin@example.com`
