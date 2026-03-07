@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     debug: bool = True
 
     # Database
-    sqlite_path: str = "reflex.db"
+    sqlite_path: str = "data/reflex.db"
 
     # Security
     jwt_secret_key: str = "CHANGE_ME_IN_PROD"
