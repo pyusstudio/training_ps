@@ -377,16 +377,16 @@ export function TrainingApp() {
                       ) : (
                         <div className={`flex max-w-[80%] gap-4 ${m.sender === 'salesperson' ? 'flex-row-reverse' : 'flex-row'}`}>
                           <div className={`mt-auto w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-xl ${m.sender === 'client'
-                              ? 'bg-gradient-to-br from-cyan-600 to-blue-700 border border-cyan-400/20'
-                              : 'bg-gradient-to-tr from-emerald-500 to-emerald-700 border border-emerald-400/20'
+                            ? 'bg-gradient-to-br from-cyan-600 to-blue-700 border border-cyan-400/20'
+                            : 'bg-gradient-to-tr from-emerald-500 to-emerald-700 border border-emerald-400/20'
                             }`}>
                             {m.sender === 'client' ? <Bot className="w-6 h-6 text-white" /> : <User className="w-6 h-6 text-white" />}
                           </div>
 
                           <div className={`flex flex-col gap-2 ${m.sender === 'salesperson' ? 'items-end' : 'items-start'}`}>
                             <div className={`relative px-6 py-4 rounded-3xl shadow-2xl ${m.sender === 'client'
-                                ? 'bg-[#16161a] text-slate-100 rounded-bl-sm border border-white/10'
-                                : 'bg-emerald-600 text-white rounded-br-sm border border-white/10'
+                              ? 'bg-[#16161a] text-slate-100 rounded-bl-sm border border-white/10'
+                              : 'bg-emerald-600 text-white rounded-br-sm border border-white/10'
                               }`}>
                               <p className="text-[15px] leading-relaxed font-medium">{m.text}</p>
                             </div>
