@@ -11,7 +11,7 @@ COPY requirements.txt /app/requirements.txt
 
 # Install Python dependencies
 RUN pip install uv
-RUN uv pip install --no-cache-dir -r /app/requirements.txt
+RUN uv pip install --system --no-cache-dir -r /app/requirements.txt
 
 COPY app /app/app
 
