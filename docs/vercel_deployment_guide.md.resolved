@@ -1,0 +1,97 @@
+# Deploying the Frontend on Vercel
+
+Since you have two separate frontend React (Vite) applications — **Trainee App** (`app` folder) and **Admin Dashboard** (`admin` folder) — you will need to create **two separate projects in Vercel**. 
+
+Here are the step-by-step instructions for each:
+
+---
+
+## 🚀 1. Deploying the Trainee App (`app` folder)
+
+1. Log into [Vercel](https://vercel.com/) and click **Add New... > Project**.
+2. **Import** your GitHub repository (`ReflexTraining`).
+3. In the "Configure Project" step:
+   * **Project Name:** Name it something like `reflex-training-app`.
+   * **Framework Preset:** Vercel should auto-detect **Vite** (if not, select *Vite*).
+   * **Root Directory:** Click "Edit", select the `app` folder, and save.
+   * **Build Command:** Leave default (`npm run build`).
+   * **Output Directory:** Leave default (`dist`).
+4. **Environment Variables:** Expand this section and add the following variable exactly as shown:
+   * **Name:** `VITE_BACKEND_WS_URL`
+   * **Value:** `wss://training-ps.onrender.com/ws`
+5. Click **Deploy**.
+
+---
+
+## 🚀 2. Deploying the Admin Dashboard (`admin` folder)
+
+1. Go back to the Vercel dashboard and click **Add New... > Project**.
+2. **Import** the same exact GitHub repository (`ReflexTraining`).
+3. In the "Configure Project" step:
+   * **Project Name:** Name it something like `reflex-admin-dashboard`.
+   * **Framework Preset:** Should auto-detect **Vite** (if not, select *Vite*).
+   * **Root Directory:** Click "Edit", select the `admin` folder, and save.
+   * **Build Command:** Leave default (`npm run build`).
+   * **Output Directory:** Leave default (`dist`).
+4. **Environment Variables:** Expand this section and add **both** of these variables:
+   * **Name:** `VITE_BACKEND_URL`
+   * **Value:** `https://training-ps.onrender.com`
+   * **Name:** `VITE_BACKEND_WS_URL`
+   * **Value:** `wss://training-ps.onrender.com/ws`
+5. Click **Deploy**.
+
+---
+
+## ✅ Post-Deployment Checks
+
+Once both sites finish deploying, Vercel will give you a public URL for each (e.g., `https://reflex-training-app.vercel.app` and `https://reflex-admin-dashboard.vercel.app`).
+
+* Visit the **Trainee App URL** and verify you can connect (the WebSocket should hit your Render backend).
+* Visit the **Admin Dashboard URL**, log in, and verify you can view sessions.
+
+> **Important Note about Render Free Tier:** If your Render backend is on the free tier, it spins down after 15 minutes of inactivity. The first time you visit your Vercel frontend after a period of inactivity, you might see errors or it might take 30-50 seconds to "wake up" the Render backend. This is normal.
+
+---
+
+## ⚠️ 3. Deploying the Backend on Vercel (NOT RECOMMENDED)
+
+You can technically deploy a Python FastAPI backend to Vercel using Vercel's Serverless Functions. However, **you must be aware of severe limitations that will break parts of your application:**
+
+> [!WARNING]
+> 1. **No WebSockets:** Vercel Serverless Functions **do not support WebSockets**. Your Trainee App relies heavily on WebSockets (`ws://`) for real-time speech and chat. If you deploy the backend to Vercel, the Trainee App will fail to connect.
+> 2. **Ephemeral File System:** Vercel functions are stateless. Any changes to a local SQLite database ([reflex.db](file:///c:/Node%20Projects/ReflexTraining/backend/reflex.db)) will be erased immediately after the request finishes. You would need to migrate to a cloud database like PostgreSQL (Supabase/Neon).
+> 3. **10-Second Timeout:** On the Vercel Free tier, API requests timeout after 10 seconds. AI processing (like HuggingFace calls) may take longer, resulting in `504 Gateway Timeout` errors.
+
+If you understand these limitations and still want to deploy the HTTP portions (like the Admin endpoints) to Vercel, here is how:
+
+### Step 1: Create a `vercel.json` file in your `backend` folder
+Create a new file named `vercel.json` inside the `backend/` directory with the following content:
+```json
+{
+  "builds": [
+    {
+      "src": "app/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app/main.py"
+    }
+  ]
+}
+```
+
+### Step 2: Ensure [requirements.txt](file:///c:/Node%20Projects/ReflexTraining/backend/requirements.txt) is ready
+Vercel needs a [requirements.txt](file:///c:/Node%20Projects/ReflexTraining/backend/requirements.txt) file in the root of the folder being deployed. You already have this in your `backend` folder.
+
+### Step 3: Deploy on Vercel
+1. Go to Vercel and click **Add New... > Project**.
+2. **Import** the `ReflexTraining` repository.
+3. **Project Name:** Name it `reflex-training-backend`.
+4. **Root Directory:** Edit -> Select `backend`.
+5. **Environment Variables:** Add your `HUGGINGFACE_API_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, etc. (from your [.env](file:///c:/Node%20Projects/ReflexTraining/backend/.env) file).
+6. Click **Deploy**.
+
+*Note: For the best experience, we strongly recommend keeping your backend on Render, Railway, or Heroku, as they support WebSockets and background tasks natively.*
