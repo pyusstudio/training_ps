@@ -67,21 +67,21 @@ export function LiveFeedPanel({ token }: Props) {
   }, [token]);
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl relative">
+    <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl relative w-full">
       <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[80px] pointer-events-none" />
 
-      <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-black/40 z-10">
-        <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-3">
-          <Terminal className="w-4 h-4 text-cyan-400" />
+      <div className="px-4 md:px-6 py-4 md:py-5 border-b border-white/5 flex flex-wrap items-center justify-between gap-3 bg-black/40 z-10 w-full">
+        <h2 className="text-xs md:text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 md:gap-3">
+          <Terminal className="w-3.5 h-3.5 md:w-4 md:h-4 text-cyan-400 shrink-0" />
           Raw Telemetry
         </h2>
-        <div className={`px-3 py-1 rounded-full border flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${connected ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
+        <div className={`px-2 md:px-3 py-1 rounded-full border flex items-center gap-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${connected ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
           <Radio className={`w-3 h-3 ${connected ? 'animate-pulse' : ''}`} />
           {connected ? 'Live Feed' : 'Offline'}
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-4 space-y-4 font-mono z-10 custom-scrollbar">
+      <div ref={containerRef} className="flex-1 overflow-x-hidden overflow-y-auto px-4 md:px-6 py-4 space-y-4 font-mono z-10 custom-scrollbar w-full">
         {events.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4 text-slate-500">
             <Radio className="w-10 h-10 opacity-20" />

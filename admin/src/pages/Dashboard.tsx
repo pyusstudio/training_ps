@@ -69,34 +69,34 @@ export function DashboardPage() {
   return (
     <div className="min-h-full bg-gradient-to-br from-slate-950 via-[#0a0f1a] to-slate-950 text-slate-50 font-sans selection:bg-emerald-500/30">
       <header className="border-b border-white/5 bg-slate-950/60 backdrop-blur-2xl sticky top-0 z-50 shadow-md shadow-black/50">
-        <div className="mx-auto max-w-[1400px] px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <ShieldCheck className="text-black w-6 h-6 border border-emerald-300 rounded-xl bg-emerald-400 p-0.5" />
+        <div className="mx-auto max-w-[1400px] px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 md:gap-4 truncate">
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-[10px] md:rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+              <ShieldCheck className="text-black w-5 h-5 md:w-6 md:h-6 border border-emerald-300 rounded-[10px] md:rounded-xl bg-emerald-400 p-0.5" />
             </div>
-            <div>
-              <p className="text-[10px] font-black tracking-widest text-emerald-400 uppercase drop-shadow-sm">
+            <div className="min-w-0">
+              <p className="text-[9px] md:text-[10px] font-black tracking-widest text-emerald-400 uppercase drop-shadow-sm truncate">
                 Reflex Command Center
               </p>
-              <h1 className="text-lg font-black tracking-tight text-white drop-shadow-md">
+              <h1 className="text-base md:text-lg font-black tracking-tight text-white drop-shadow-md truncate">
                 Live Session Telemetry
               </h1>
             </div>
           </div>
           <button
             onClick={() => setToken(null)}
-            className="flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-5 py-2.5 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-xl"
+            className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 md:px-5 py-2 md:py-2.5 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-xl shrink-0"
           >
             <LogOut className="w-4 h-4" />
-            Sign Out
+            <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6 relative">
+      <main className="mx-auto max-w-[1400px] px-3 md:px-6 py-6 md:py-8 space-y-6 relative overflow-x-hidden">
         {/* Subtle background glow */}
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-1/4 left-1/4 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none hidden md:block" />
+        <div className="absolute bottom-1/4 left-1/4 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none hidden md:block" />
 
         <AnimatePresence>
           {error && (
@@ -157,7 +157,7 @@ export function DashboardPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="xl:col-span-1 xl:sticky xl:top-28 h-fit max-h-[calc(100vh-8rem)]"
+            className="xl:col-span-1 xl:sticky xl:top-24 h-[500px] xl:h-fit xl:max-h-[calc(100vh-8rem)]"
           >
             <LiveFeedPanel token={token} />
           </motion.div>

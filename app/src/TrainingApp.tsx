@@ -288,70 +288,15 @@ export function TrainingApp() {
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden bg-gradient-to-br from-slate-950 via-[#0a0f1a] to-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30">
 
-      {/* SIDEBAR */}
-      <aside className="hidden md:flex w-72 flex-col border-r border-white/5 bg-slate-950/40 backdrop-blur-2xl">
-        <div className="p-6 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <ShieldCheck className="text-black w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="font-bold text-lg tracking-tight text-white drop-shadow-sm">Reflex Pro</h1>
-              <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Training Hub</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/10 text-white font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] border border-white/5 transition-all group">
-            <MessageSquare className="w-5 h-5 text-emerald-400" />
-            <span>Active Session</span>
-            <div className="ml-auto w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 font-medium border border-transparent transition-all hover:bg-white/5 hover:border-white/5 hover:text-slate-200 group">
-            <TrendingUp className="w-5 h-5 group-hover:text-cyan-400 transition-colors" />
-            <span>Performance</span>
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 font-medium border border-transparent transition-all hover:bg-white/5 hover:border-white/5 hover:text-slate-200 group">
-            <Target className="w-5 h-5 group-hover:text-purple-400 transition-colors" />
-            <span>Scenarios</span>
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 font-medium border border-transparent transition-all hover:bg-white/5 hover:border-white/5 hover:text-slate-200 group">
-            <Settings className="w-5 h-5 group-hover:text-slate-200 transition-colors" />
-            <span>Settings</span>
-          </button>
-        </nav>
-
-        <div className="p-4 border-t border-white/5">
-          <div className="bg-slate-900/50 backdrop-blur-md rounded-2xl p-5 border border-white/5 relative overflow-hidden group">
-            <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all" />
-            <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-2">
-              <Award className="w-3.5 h-3.5 text-emerald-500" />
-              Next Milestones
-            </h4>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-slate-400">
-                  <span>Objection Handling</span>
-                  <span>75%</span>
-                </div>
-                <div className="h-1.5 w-full bg-black/50 rounded-full overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
-                  <div className="h-full w-3/4 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col relative">
+      <main className="flex-1 flex flex-col relative w-full max-w-[100vw]">
 
         {/* TOP BAR */}
-        <header className="h-20 border-b border-white/5 flex items-center justify-between px-4 md:px-8 bg-black/20 backdrop-blur-xl z-20">
-          <div className="flex items-center gap-4 md:gap-6">
-            <div className="flex flex-col">
-              <h2 className="text-sm font-bold text-white">Advanced Sales Simulation</h2>
+        <header className="h-16 md:h-20 border-b border-white/5 flex items-center justify-between px-3 md:px-8 bg-black/20 backdrop-blur-xl z-20 shrink-0">
+          <div className="flex items-center gap-2 md:gap-6 min-w-0">
+            <div className="flex flex-col min-w-0">
+              <h2 className="text-sm md:text-base font-bold text-white truncate">Advanced Sales Simulation</h2>
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-red-500 animate-pulse"}`} />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -361,7 +306,7 @@ export function TrainingApp() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <AnimatePresence>
               {sessionStatus === "active" && timeRemaining !== null && (
                 <motion.div
@@ -399,8 +344,8 @@ export function TrainingApp() {
         </header>
 
         {/* CHAT CONTAINER */}
-        <div className="flex-1 overflow-y-auto px-4 py-8 md:p-8 relative">
-          <div className="max-w-4xl mx-auto space-y-10">
+        <div className="flex-1 overflow-y-auto px-2 py-4 md:px-4 md:py-8 relative scroll-smooth bg-transparent h-full">
+          <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 w-full">
 
             <AnimatePresence mode="popLayout">
               {!sessionId && !rating && messages.length === 0 && (
@@ -408,7 +353,7 @@ export function TrainingApp() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="flex flex-col items-center justify-center min-h-[60vh] text-center"
+                  className="flex flex-col items-center justify-center min-h-[50vh] md:min-h-[60vh] text-center px-4"
                 >
                   <div className="relative mb-8">
                     <div className="w-24 h-24 rounded-3xl bg-emerald-500/10 backdrop-blur-md flex items-center justify-center border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.15)] overflow-hidden">
@@ -421,15 +366,15 @@ export function TrainingApp() {
                     )}
                   </div>
 
-                  <h3 className="text-3xl font-black text-white mb-3 tracking-tight drop-shadow-md">Ready for Excellence?</h3>
-                  <p className="max-w-md text-slate-400 text-lg leading-relaxed mb-10 font-medium">
+                  <h3 className="text-2xl md:text-3xl font-black text-white mb-2 md:mb-3 tracking-tight drop-shadow-md">Ready for Excellence?</h3>
+                  <p className="max-w-md text-slate-400 text-base md:text-lg leading-relaxed mb-8 md:mb-10 font-medium">
                     Step into the simulation. Practice your pitch, overcome objections, and refine your closing techniques.
                   </p>
 
                   <button
                     onClick={startTrainingSession}
                     disabled={!connected}
-                    className="group relative px-10 py-4 bg-emerald-500 rounded-2xl text-black font-black text-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 shadow-[0_10px_30px_rgba(16,185,129,0.25)] border border-emerald-400 flex items-center gap-3 overflow-hidden"
+                    className="group relative px-6 md:px-10 py-3 md:py-4 bg-emerald-500 rounded-2xl text-black font-black text-base md:text-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 shadow-[0_10px_30px_rgba(16,185,129,0.25)] border border-emerald-400 flex items-center gap-2 md:gap-3 overflow-hidden w-full max-w-[280px] md:w-auto justify-center"
                   >
                     <span className="relative z-10 flex items-center gap-3 drop-shadow-sm">
                       Start Session <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -441,7 +386,7 @@ export function TrainingApp() {
 
               {/* MESSAGE LOG */}
               {messages.length > 0 && (
-                <motion.div className="space-y-8 pb-32">
+                <motion.div className="space-y-6 md:space-y-8 pb-32 md:pb-40 w-full">
                   {messages.map((m, idx) => (
                     <motion.div
                       key={m.id}
@@ -451,12 +396,12 @@ export function TrainingApp() {
                       className={`flex w-full ${m.sender === 'client' ? 'justify-start' : m.sender === 'salesperson' ? 'justify-end' : 'justify-center'}`}
                     >
                       {m.sender === 'system' ? (
-                        <div className="flex items-center gap-3 bg-white/5 backdrop-blur-md border border-white/10 px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                          <Terminal className="w-3 h-3" />
-                          {m.text}
+                        <div className="flex items-center gap-2 md:gap-3 bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 md:px-6 md:py-2 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-center max-w-full truncate">
+                          <Terminal className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{m.text}</span>
                         </div>
                       ) : (
-                        <div className={`flex max-w-[85%] md:max-w-[75%] gap-3 md:gap-4 ${m.sender === 'salesperson' ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div className={`flex max-w-[95%] md:max-w-[85%] lg:max-w-[75%] gap-2 md:gap-4 ${m.sender === 'salesperson' ? 'flex-row-reverse' : 'flex-row'}`}>
                           <div className={`mt-auto w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 shadow-lg border ${m.sender === 'client'
                             ? 'bg-gradient-to-br from-cyan-600 to-blue-800 border-cyan-400/30 text-white'
                             : 'bg-emerald-500 border-emerald-400/50 text-black'
@@ -505,7 +450,7 @@ export function TrainingApp() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       className="flex w-full justify-start"
                     >
-                      <div className="flex max-w-[85%] gap-4 flex-row">
+                      <div className="flex max-w-[95%] md:max-w-[85%] gap-2 md:gap-4 flex-row">
                         <div className="mt-auto w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 shadow-lg border bg-gradient-to-br from-cyan-600 to-blue-800 border-cyan-400/30 text-white">
                           <Bot className="w-5 h-5" />
                         </div>
@@ -664,26 +609,26 @@ export function TrainingApp() {
         </div>
 
         {/* INPUT FOOTER */}
-        <footer className="h-24 md:h-28 flex items-center bg-transparent px-4 md:px-8 pb-4 md:pb-8 pt-2 absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
+        <footer className="h-20 md:h-28 flex items-center bg-transparent px-2 md:px-8 pb-4 md:pb-8 pt-2 absolute bottom-0 left-0 right-0 z-30 pointer-events-none w-full">
           <div className="max-w-4xl w-full mx-auto relative group pointer-events-auto">
-            <form onSubmit={handleSendResponse} className="relative shadow-2xl rounded-[2rem]">
-              <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-2xl rounded-[2rem] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)]" />
+            <form onSubmit={handleSendResponse} className="relative shadow-2xl rounded-[2rem] mx-2 md:mx-0">
+              <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-2xl rounded-[1.5rem] md:rounded-[2rem] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)]" />
               <input
                 type="text"
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
                 disabled={sessionStatus !== "active"}
                 placeholder={sessionStatus === "active" ? "Engage with the trainee..." : rating ? "Session completed" : "Start simulation to begin engagement"}
-                className="w-full h-14 md:h-16 bg-transparent relative z-10 rounded-[2rem] px-6 md:px-8 pr-16 md:pr-20 text-base md:text-lg font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all disabled:opacity-50 cursor-text"
+                className="w-full h-12 md:h-16 bg-transparent relative z-10 rounded-[1.5rem] md:rounded-[2rem] px-4 md:px-8 pr-14 md:pr-20 text-sm md:text-lg font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all disabled:opacity-50 cursor-text"
                 autoComplete="off"
               />
-              <div className="absolute right-2 md:right-3 top-1/2 -translate-y-1/2 z-20">
+              <div className="absolute right-1.5 md:right-3 top-1/2 -translate-y-1/2 z-20">
                 <button
                   type="submit"
                   disabled={sessionStatus !== "active" || !transcript.trim()}
-                  className="w-10 h-10 md:w-12 md:h-12 rounded-[1.2rem] bg-emerald-500 flex items-center justify-center text-black font-bold transition-all hover:scale-105 active:scale-95 disabled:opacity-0 disabled:scale-50 shadow-lg shadow-emerald-500/30"
+                  className="w-9 h-9 md:w-12 md:h-12 rounded-[1rem] md:rounded-[1.2rem] bg-emerald-500 flex items-center justify-center text-black font-bold transition-all hover:scale-105 active:scale-95 disabled:opacity-0 disabled:scale-50 shadow-lg shadow-emerald-500/30"
                 >
-                  <Send className="w-4 h-4 md:w-5 md:h-5 fill-current ml-0.5" />
+                  <Send className="w-4 h-4 md:w-5 md:h-5 fill-current md:ml-0.5" />
                 </button>
               </div>
             </form>

@@ -11,20 +11,20 @@ type Props = {
 
 export function SessionTable({ sessions, selectedId, onSelect }: Props) {
   return (
-    <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/5 overflow-hidden">
-      <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-black/20">
-        <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-3">
-          <Activity className="w-4 h-4 text-emerald-400" />
+    <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] border border-white/5 overflow-hidden w-full max-w-[100vw]">
+      <div className="px-4 md:px-6 py-4 md:py-5 border-b border-white/5 flex flex-wrap items-center justify-between gap-3 bg-black/20">
+        <h2 className="text-xs md:text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 md:gap-3">
+          <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400 shrink-0" />
           Monitored Sessions
         </h2>
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 bg-white/5 px-2 md:px-3 py-1 rounded-full border border-white/5 whitespace-nowrap">
           {sessions.length} Active {sessions.length === 1 ? "" : "Streams"}
         </span>
       </div>
 
-      <div className="overflow-auto flex-1 custom-scrollbar min-h-[400px]">
-        <table className="min-w-full text-sm">
-          <thead className="bg-black/40 text-xs font-black uppercase text-slate-500 tracking-widest sticky top-0 z-10 backdrop-blur-md">
+      <div className="flex-1 custom-scrollbar min-h-[400px] overflow-x-auto w-full">
+        <table className="min-w-[600px] w-full text-sm">
+          <thead className="bg-black/40 text-[10px] md:text-xs font-black uppercase text-slate-500 tracking-widest sticky top-0 z-10 backdrop-blur-md">
             <tr>
               <th className="px-6 py-4 text-left font-bold w-1/3">
                 <div className="flex items-center gap-2"><Hash className="w-3 h-3" /> Identifier</div>
@@ -59,8 +59,8 @@ export function SessionTable({ sessions, selectedId, onSelect }: Props) {
                   key={s.id}
                   onClick={() => onSelect(s.id)}
                   className={`cursor-pointer transition-all duration-300 group ${isSelected
-                      ? "bg-gradient-to-r from-emerald-500/10 to-transparent border-l-2 border-emerald-500 shadow-[inset_0_1px_rgba(255,255,255,0.05)]"
-                      : "hover:bg-white/5 border-l-2 border-transparent"
+                    ? "bg-gradient-to-r from-emerald-500/10 to-transparent border-l-2 border-emerald-500 shadow-[inset_0_1px_rgba(255,255,255,0.05)]"
+                    : "hover:bg-white/5 border-l-2 border-transparent"
                     }`}
                 >
                   <td className="px-6 py-4">

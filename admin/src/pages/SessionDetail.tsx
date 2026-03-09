@@ -57,11 +57,11 @@ export function SessionDetailPanel({ detail, onRefresh }: Props) {
   const shortId = id.split('-')[0].toUpperCase();
 
   return (
-    <div className="rounded-[2rem] border border-white/5 bg-slate-900/40 backdrop-blur-xl flex flex-col overflow-hidden h-full shadow-2xl relative">
+    <div className="rounded-[1.5rem] md:rounded-[2rem] border border-white/5 bg-slate-900/40 backdrop-blur-xl flex flex-col overflow-hidden h-full shadow-2xl relative w-full">
       <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[80px] pointer-events-none" />
 
       {/* HEADER */}
-      <div className="px-8 py-6 border-b border-white/5 bg-black/20 flex flex-col md:flex-row md:items-center justify-between gap-4 z-10">
+      <div className="px-4 md:px-8 py-4 md:py-6 border-b border-white/5 bg-black/20 flex flex-col xl:flex-row xl:items-center justify-between gap-4 z-10 w-full">
         <div>
           <h2 className="text-xl font-black text-white flex items-center gap-3 drop-shadow-md">
             Review Protocol
@@ -69,9 +69,9 @@ export function SessionDetailPanel({ detail, onRefresh }: Props) {
           </h2>
         </div>
 
-        <div className="flex flex-wrap gap-4 md:gap-8 text-sm bg-black/30 px-6 py-3 rounded-2xl border border-white/5 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-800/80 flex items-center justify-center">
+        <div className="flex flex-wrap gap-2 sm:gap-4 md:gap-8 text-sm bg-black/30 px-4 md:px-6 py-3 rounded-[1rem] md:rounded-2xl border border-white/5 backdrop-blur-md">
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
+            <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-slate-800/80 flex items-center justify-center">
               <FastForward className="w-4 h-4 text-slate-400" />
             </div>
             <div className="flex flex-col">
@@ -111,7 +111,7 @@ export function SessionDetailPanel({ detail, onRefresh }: Props) {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-3 gap-4 md:gap-6"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6"
           >
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 relative overflow-hidden group">
               <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform"><Activity className="w-16 h-16 text-emerald-500" /></div>
@@ -137,7 +137,7 @@ export function SessionDetailPanel({ detail, onRefresh }: Props) {
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="rounded-3xl bg-gradient-to-br from-indigo-900/40 to-slate-900/60 border border-indigo-500/30 p-8 shadow-xl relative overflow-hidden"
+              className="rounded-2xl md:rounded-3xl bg-gradient-to-br from-indigo-900/40 to-slate-900/60 border border-indigo-500/30 p-5 md:p-8 shadow-xl relative overflow-hidden"
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500" />
 
@@ -146,7 +146,7 @@ export function SessionDetailPanel({ detail, onRefresh }: Props) {
                   <h3 className="text-xl font-black text-white mb-1">AI Assessor Synthesis</h3>
                   <p className="text-sm font-medium text-indigo-300/80">Automated performance evaluation generated post-session.</p>
                 </div>
-                <div className="flex items-center justify-center bg-black/40 rounded-2xl px-6 py-4 border border-indigo-500/40 shadow-inner">
+                <div className="flex items-center justify-center bg-black/40 rounded-2xl px-4 md:px-6 py-3 md:py-4 border border-indigo-500/40 shadow-inner w-full md:w-auto">
                   <div className="flex flex-col items-center">
                     <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-1">Mastery</span>
                     <div>
@@ -257,8 +257,8 @@ export function SessionDetailPanel({ detail, onRefresh }: Props) {
                   key={e.id}
                   className={`flex ${e.speaker === 'client' ? 'justify-start' : 'justify-end'} w-full`}
                 >
-                  <div className={`flex gap-4 max-w-[85%] ${e.speaker === 'salesperson' ? 'flex-row-reverse' : ''}`}>
-                    <div className={`shrink-0 mt-auto w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg border ${e.speaker === 'client'
+                  <div className={`flex gap-2 sm:gap-4 max-w-[95%] sm:max-w-[85%] ${e.speaker === 'salesperson' ? 'flex-row-reverse' : ''} shrink-0`}>
+                    <div className={`shrink-0 mt-auto w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg border ${e.speaker === 'client'
                       ? 'bg-gradient-to-br from-cyan-600 to-blue-800 border-cyan-400/30'
                       : 'bg-emerald-500 border-emerald-400/50'
                       }`}>
