@@ -20,6 +20,21 @@ def _strip_markdown_fences(text: str) -> str:
     text = re.sub(r'\s*```$', '', text)
     return text.strip()
 
+def _safe_json_loads(text: str) -> dict:
+    """Safely load JSON, handling potential unescaped control characters."""
+    try:
+        return json.loads(text, strict=False)
+    except json.JSONDecodeError as e:
+        logger.warning(f"Initial JSON decode failed with strict=False: {e}. Attempting text cleanup.")
+        # Fallback: escape common control characters
+        clean_text = text.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+        try:
+            return json.loads(clean_text, strict=False)
+        except json.JSONDecodeError as e2:
+            logger.error(f"Failed to parse JSON even after cleaning: {e2}")
+            return {}
+
+
 SYSTEM_PROMPT = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 You are a potential car buyer visiting a Nissan dealership in Dubai. You are speaking with a salesperson.
 
@@ -169,7 +184,7 @@ Respond ONLY with valid JSON.
             response = await asyncio.to_thread(self.model.generate_content, prompt)
             text = response.text
             text = _strip_markdown_fences(text)
-            data = json.loads(text)
+            data = _safe_json_loads(text)
             return SessionRating(
                 overall_score=data.get("overall_score", 5),
                 strengths=data.get("strengths", []),
@@ -186,7 +201,7 @@ Respond ONLY with valid JSON.
         try:
             response = await asyncio.to_thread(self.model.generate_content, prompt)
             text = _strip_markdown_fences(response.text)
-            data = json.loads(text)
+            data = _safe_json_loads(text)
             return ReplyEvaluation(
                 empathy=data.get("empathy", 5),
                 detail=data.get("detail", 5),
@@ -271,7 +286,7 @@ As an Automotive Sales Manager, provide a structured JSON rating with:
                     {"role": "user", "content": prompt}
                 ]
             )
-            data = json.loads(response.choices[0].message.content)
+            data = _safe_json_loads(response.choices[0].message.content)
             return SessionRating(
                 overall_score=data.get("overall_score", 5),
                 strengths=data.get("strengths", []),
@@ -294,7 +309,7 @@ As an Automotive Sales Manager, provide a structured JSON rating with:
                     {"role": "user", "content": prompt}
                 ]
             )
-            data = json.loads(response.choices[0].message.content)
+            data = _safe_json_loads(response.choices[0].message.content)
             return ReplyEvaluation(
                 empathy=data.get("empathy", 5),
                 detail=data.get("detail", 5),
@@ -394,7 +409,7 @@ Respond ONLY with a raw JSON object. Do not use markdown backticks or explanatio
                 raise ValueError(f"Unexpected response format: {response}")
             text = _strip_markdown_fences(text)
                 
-            data = json.loads(text.strip())
+            data = _safe_json_loads(text.strip())
             return SessionRating(
                 overall_score=data.get("overall_score", 5),
                 strengths=data.get("strengths", []),
@@ -422,7 +437,7 @@ Respond ONLY with a raw JSON object. Do not use markdown backticks or explanatio
                 text = _strip_markdown_fences(response.choices[0].message.content.strip())
             else:
                 raise ValueError(f"Unexpected response format: {response}")
-            data = json.loads(text)
+            data = _safe_json_loads(text)
             return ReplyEvaluation(
                 empathy=data.get("empathy", 5),
                 detail=data.get("detail", 5),
@@ -523,7 +538,7 @@ Respond ONLY with a raw JSON object.
                     timeout=60.0 # Ratings take longer
                 )
                 res.raise_for_status()
-                data = json.loads(res.json()["message"]["content"])
+                data = _safe_json_loads(res.json()["message"]["content"])
                 
             return SessionRating(
                 overall_score=data.get("overall_score", 5),
@@ -555,7 +570,7 @@ Respond ONLY with a raw JSON object.
                     timeout=30.0
                 )
                 res.raise_for_status()
-                data = json.loads(res.json()["message"]["content"])
+                data = _safe_json_loads(res.json()["message"]["content"])
             return ReplyEvaluation(
                 empathy=data.get("empathy", 5),
                 detail=data.get("detail", 5),
