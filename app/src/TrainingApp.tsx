@@ -32,7 +32,13 @@ type SessionRating = {
   overall_score: number;
   strengths: string[];
   improvements: string[];
-  detailed_feedback: string;
+  detailed_feedback: {
+    customer_engagement?: string;
+    needs_assessment_and_pitch?: string;
+    objection_handling_and_closing?: string;
+    areas_for_improvement?: string[];
+    error?: string;
+  };
 };
 
 type SummaryMetrics = {
@@ -589,9 +595,60 @@ export function TrainingApp() {
                 <div className="bg-slate-900/80 backdrop-blur-2xl p-8 md:p-10 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
                   <h4 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6 relative z-10">Expert Debrief</h4>
-                  <p className="text-lg md:text-xl font-medium text-slate-200 leading-relaxed italic border-l-4 border-emerald-500/40 pl-6 md:pl-8 relative z-10">
-                    "{rating.detailed_feedback}"
-                  </p>
+
+                  {rating.detailed_feedback.error ? (
+                    <div className="text-red-400 font-medium bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                      Error generating feedback: {rating.detailed_feedback.error}
+                    </div>
+                  ) : (
+                    <div className="space-y-6 relative z-10">
+                      {/* Section 1: Customer Engagement */}
+                      <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
+                        <h5 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <User className="w-4 h-4" /> Customer Engagement
+                        </h5>
+                        <p className="text-slate-300 font-medium leading-relaxed">
+                          {rating.detailed_feedback.customer_engagement || "No feedback provided."}
+                        </p>
+                      </div>
+
+                      {/* Section 2: Needs Assessment & Pitch */}
+                      <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
+                        <h5 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <Target className="w-4 h-4" /> Needs Assessment & Pitch
+                        </h5>
+                        <p className="text-slate-300 font-medium leading-relaxed">
+                          {rating.detailed_feedback.needs_assessment_and_pitch || "No feedback provided."}
+                        </p>
+                      </div>
+
+                      {/* Section 3: Objection Handling & Closing */}
+                      <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
+                        <h5 className="text-sm font-bold text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4" /> Objection Handling & Closing
+                        </h5>
+                        <p className="text-slate-300 font-medium leading-relaxed">
+                          {rating.detailed_feedback.objection_handling_and_closing || "No feedback provided."}
+                        </p>
+                      </div>
+
+                      {/* Section 4: Areas for Improvement Coaching */}
+                      {rating.detailed_feedback.areas_for_improvement && rating.detailed_feedback.areas_for_improvement.length > 0 && (
+                        <div className="bg-amber-500/5 rounded-2xl p-5 border border-amber-500/20 mt-4">
+                          <h5 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <Settings className="w-4 h-4" /> Strategic Takeaways
+                          </h5>
+                          <ul className="space-y-2">
+                            {rating.detailed_feedback.areas_for_improvement.map((item, idx) => (
+                              <li key={idx} className="flex gap-3 text-slate-300 font-medium text-sm">
+                                <span className="text-amber-500 shrink-0">•</span> {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-10 flex justify-start md:justify-center relative z-10">
                     <button

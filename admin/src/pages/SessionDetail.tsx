@@ -189,10 +189,67 @@ export function SessionDetailPanel({ detail, onRefresh }: Props) {
               </div>
 
               <div className="mt-6 bg-indigo-500/5 rounded-2xl p-6 border border-indigo-500/10">
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-2 block">Direct Feedback</span>
-                <p className="text-base font-medium italic text-slate-200 leading-relaxed border-l-2 border-indigo-500/50 pl-4">
-                  "{rating.detailed_feedback}"
-                </p>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-4 block">Detailed Evaluation Report</span>
+
+                {typeof rating.detailed_feedback === 'string' ? (
+                  <p className="text-base font-medium italic text-slate-200 leading-relaxed border-l-2 border-indigo-500/50 pl-4">
+                    "{rating.detailed_feedback}"
+                  </p>
+                ) : rating.detailed_feedback?.error ? (
+                  <div className="text-red-400 font-medium bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                    Error generating feedback: {rating.detailed_feedback.error}
+                  </div>
+                ) : rating.detailed_feedback ? (
+                  <div className="space-y-6">
+                    {/* Section 1: Customer Engagement */}
+                    <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+                      <h5 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <User className="w-4 h-4" /> Customer Engagement
+                      </h5>
+                      <p className="text-slate-300 font-medium text-sm leading-relaxed">
+                        {rating.detailed_feedback.customer_engagement || "No feedback provided."}
+                      </p>
+                    </div>
+
+                    {/* Section 2: Needs Assessment & Pitch */}
+                    <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+                      <h5 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <Target className="w-4 h-4" /> Needs Assessment & Pitch
+                      </h5>
+                      <p className="text-slate-300 font-medium text-sm leading-relaxed">
+                        {rating.detailed_feedback.needs_assessment_and_pitch || "No feedback provided."}
+                      </p>
+                    </div>
+
+                    {/* Section 3: Objection Handling & Closing */}
+                    <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+                      <h5 className="text-sm font-bold text-purple-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <Activity className="w-4 h-4" /> Objection Handling & Closing
+                      </h5>
+                      <p className="text-slate-300 font-medium text-sm leading-relaxed">
+                        {rating.detailed_feedback.objection_handling_and_closing || "No feedback provided."}
+                      </p>
+                    </div>
+
+                    {/* Section 4: Areas for Improvement Coaching */}
+                    {rating.detailed_feedback.areas_for_improvement && rating.detailed_feedback.areas_for_improvement.length > 0 && (
+                      <div className="bg-amber-500/5 rounded-xl p-4 border border-amber-500/20 mt-4">
+                        <h5 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" /> Strategic Takeaways
+                        </h5>
+                        <ul className="space-y-1">
+                          {rating.detailed_feedback.areas_for_improvement.map((item: string, idx: number) => (
+                            <li key={idx} className="flex gap-2 text-slate-300 font-medium text-sm items-start">
+                              <span className="text-amber-500 shrink-0 mt-0.5">•</span> {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-slate-500 italic">No detailed feedback available.</p>
+                )}
               </div>
             </motion.div>
           ) : (

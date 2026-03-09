@@ -77,7 +77,7 @@ class SessionRatingMessage(BaseMessage):
     overall_score: int
     strengths: list[str]
     improvements: list[str]
-    detailed_feedback: str
+    detailed_feedback: Dict[str, Any]
 
 
 class SessionSummaryMessage(BaseMessage):
