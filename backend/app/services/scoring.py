@@ -1,68 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from loguru import logger
-
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-
-from ..config import get_settings
-
-
-_SETTINGS = get_settings()
-
-
-INTENT_COLORS: Dict[str, str] = {
-    "Isolate": "#22c55e",
-    "Empathy": "#d4d4d4",
-    "Defensive": "#ef4444",
-}
-
-
-INTENT_KEYWORDS: Dict[str, List[str]] = {
-    "Isolate": [
-        "right car",
-        "family",
-        "value",
-        "features",
-        "investment",
-        "set the price aside",
-    ],
-    "Empathy": [
-        "understand how you feel",
-        "felt the same",
-        "they found",
-        "i understand",
-        "i hear you",
-    ],
-    "Defensive": [
-        "fixed price",
-        "policy",
-        "manager",
-        "best we can do",
-        "cannot go lower",
-    ],
-}
-
-
-CANONICAL_EXAMPLES: Dict[str, str] = {
-    "Isolate": (
-        "I hear you. If we set the price aside for a moment, "
-        "is this the right car for your family?"
-    ),
-    "Empathy": (
-        "I understand how you feel. Many customers felt the same, "
-        "but they found the value and safety made up for the cost."
-    ),
-    "Defensive": (
-        "Our prices are fixed by management. This is already the lowest "
-        "we can go on this model."
-    ),
-}
-
+from .ai_service import ai_provider_instance
 
 @dataclass
 class IntentScore:
@@ -72,52 +14,23 @@ class IntentScore:
     feedback: str
     keywords_detected: List[str]
     color_hex: str
+    empathy_score: int
+    detail_score: int
+    tone_alignment_score: int
 
 
 class IntentScoringService:
     """
-    Hybrid SBERT + rule-based intent scoring.
-
-    - Uses sentence embeddings for semantic similarity against canonical examples.
-    - Uses keyword buckets for robustness and interpretability.
-    - Can be extended later with a learning-based classifier.
+    AI-powered intent scoring service.
+    
+    Evaluates responses along 3 dimensions: Empathy, Detail, and Tone Alignment.
+    Calculates final category and score out of 100 based on weightings.
     """
 
     def __init__(self) -> None:
-        self._model: Optional[SentenceTransformer] = None
-        self._canonical_embeddings: Optional[np.ndarray] = None
+        logger.info("IntentScoringService initialised (AI mode)")
 
-        try:
-            self._model = SentenceTransformer(_SETTINGS.sbert_model_name)
-            self._canonical_embeddings = self._model.encode(
-                list(CANONICAL_EXAMPLES.values()),
-                convert_to_numpy=True,
-            )
-            logger.info(
-                "Loaded SBERT model '{}' for intent scoring",
-                _SETTINGS.sbert_model_name,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Failed to load SBERT model: {}", exc)
-            self._model = None
-            self._canonical_embeddings = None
-
-        # Placeholder for future learning-based classifier
-        self._classifier = None
-        if _SETTINGS.use_learning_model and _SETTINGS.learning_model_path:
-            self._load_learning_model(_SETTINGS.learning_model_path)
-
-    def _load_learning_model(self, path: str) -> None:
-        try:
-            import joblib
-
-            self._classifier = joblib.load(path)
-            logger.info("Loaded learning-based intent classifier from {}", path)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Failed to load learning model: {}", exc)
-            self._classifier = None
-
-    def score(self, transcript: str) -> IntentScore:
+    async def score(self, session_id: str, transcript: str) -> IntentScore:
         text = transcript.strip().lower()
         if not text:
             return IntentScore(
@@ -127,117 +40,49 @@ class IntentScoringService:
                 feedback="No response detected.",
                 keywords_detected=[],
                 color_hex="#737373",
+                empathy_score=0,
+                detail_score=0,
+                tone_alignment_score=0,
             )
 
-        keyword_hits: Dict[str, List[str]] = {}
-        for intent, keywords in INTENT_KEYWORDS.items():
-            matches = [kw for kw in keywords if kw in text]
-            if matches:
-                keyword_hits[intent] = matches
-
-        sims: Dict[str, float] = {}
-        if self._model is not None and self._canonical_embeddings is not None:
-            embedding = self._model.encode([text], convert_to_numpy=True)
-            sim_values = cosine_similarity(embedding, self._canonical_embeddings)[0]
-            for intent, sim in zip(CANONICAL_EXAMPLES.keys(), sim_values, strict=False):
-                sims[intent] = float(sim)
-
-        # Combine signals
-        intent = self._choose_intent(keyword_hits, sims)
-        score = self._compute_score(intent, keyword_hits, sims)
-        sentiment = self._sentiment_for_intent(intent)
-        feedback = self._build_feedback(intent, keyword_hits, sims)
-        color_hex = INTENT_COLORS.get(intent, "#737373")
-
-        detected_keywords = sorted(
-            {kw for hits in keyword_hits.values() for kw in hits}
-        )
-
+        eval_result = await ai_provider_instance.evaluate_reply(session_id, transcript)
+        
+        empathy = eval_result.empathy
+        detail = eval_result.detail
+        tone = eval_result.tone_alignment
+        feedback = eval_result.feedback
+        
+        # Calculate Final Score out of 10
+        final_score_10 = (empathy * 0.4) + (detail * 0.4) + (tone * 0.2)
+        final_score_100 = int(final_score_10 * 10)
+        
+        # Categorization Logic
+        if final_score_10 >= 9.0:
+            category = "The Trusted Advisor"
+            color = "#10b981" # green
+        elif final_score_10 >= 7.5:
+            category = "The Professional"
+            color = "#3b82f6" # blue
+        elif final_score_10 >= 5.0:
+            category = "The Script-Follower"
+            color = "#f59e0b" # amber
+        elif final_score_10 >= 3.0:
+            category = "The Order-Taker"
+            color = "#6b7280" # gray
+        else:
+            category = "The Liability"
+            color = "#ef4444" # red
+            
         return IntentScore(
-            intent_category=intent,
-            score=score,
-            sentiment=sentiment,
+            intent_category=category,
+            score=final_score_100,
+            sentiment="Neutral",
             feedback=feedback,
-            keywords_detected=detected_keywords,
-            color_hex=color_hex,
+            keywords_detected=[],
+            color_hex=color,
+            empathy_score=empathy,
+            detail_score=detail,
+            tone_alignment_score=tone,
         )
-
-    @staticmethod
-    def _choose_intent(
-        keyword_hits: Dict[str, List[str]],
-        sims: Dict[str, float],
-    ) -> str:
-        if keyword_hits:
-            # Prefer intents with more keyword hits, then by similarity
-            best_intent = None
-            best_score = -1.0
-            for intent, hits in keyword_hits.items():
-                count = len(hits)
-                sim = sims.get(intent, 0.0)
-                combined = count + sim
-                if combined > best_score:
-                    best_score = combined
-                    best_intent = intent
-            if best_intent is not None:
-                return best_intent
-
-        if sims:
-            return max(sims.items(), key=lambda kv: kv[1])[0]
-
-        return "Unknown"
-
-    @staticmethod
-    def _compute_score(
-        intent: str,
-        keyword_hits: Dict[str, List[str]],
-        sims: Dict[str, float],
-    ) -> int:
-        base = 50
-        sim = sims.get(intent, 0.0)
-        sim_component = int(sim * 40)
-        keyword_count = len(keyword_hits.get(intent, []))
-        keyword_component = min(keyword_count * 5, 10)
-
-        score = base + sim_component + keyword_component
-
-        if intent == "Defensive":
-            score = min(score, 40)
-
-        return max(0, min(100, score))
-
-    @staticmethod
-    def _sentiment_for_intent(intent: str) -> str:
-        if intent == "Defensive":
-            return "Negative"
-        if intent in {"Isolate", "Empathy"}:
-            return "Positive"
-        return "Neutral"
-
-    @staticmethod
-    def _build_feedback(
-        intent: str,
-        keyword_hits: Dict[str, List[str]],
-        sims: Dict[str, float],
-    ) -> str:
-        if intent == "Isolate":
-            return (
-                "Good job moving from price to value. "
-                "Ensure you confirm the car is right for the customer."
-            )
-        if intent == "Empathy":
-            return (
-                "Solid empathy. Reinforce the Feel–Felt–Found pattern to connect "
-                "with the customer's concern."
-            )
-        if intent == "Defensive":
-            return (
-                "Response sounds defensive around price. Avoid arguing policy and "
-                "pivot back to value and fit."
-            )
-        if sims:
-            return "Partial alignment with the desired pattern. Refine phrasing to match the briefing examples."
-        return "Unable to classify the response. Try including more detail about value, empathy, or objection handling."
-
 
 scoring_service = IntentScoringService()
-

@@ -29,6 +29,7 @@ class Connection:
         self.websocket = websocket
         self.role = role
         self.user_id = user_id
+        self.session_id: str | None = None
         self.outbound_queue: asyncio.Queue[BaseMessage] = asyncio.Queue()
 
 
@@ -112,6 +113,11 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     finally:
         shutdown.set()
         await manager.disconnect(conn)
+        
+        if conn.session_id:
+            logger.info("Cleaning up resources for disconnected session {}", conn.session_id)
+            asyncio.create_task(session_service.cleanup_session_lock(conn.session_id))
+            
         import contextlib
         for task in [sender_task, receiver_task]:
             task.cancel()
@@ -193,6 +199,7 @@ async def _handle_session_start(conn: Connection, data: dict) -> None:
         user_id=msg.user_id or conn.user_id,
         scenario=msg.scenario,
     )
+    conn.session_id = started.session_id
     await conn.outbound_queue.put(started)
     await conn.outbound_queue.put(first_utterance)
 
@@ -231,6 +238,9 @@ async def _handle_roleplay_event(conn: Connection, data: dict) -> None:
         )
         await conn.outbound_queue.put(error)
         return
+
+    if not conn.session_id:
+        conn.session_id = msg.session_id
 
     try:
         score_msg, next_client_msg, summary_msg, rating_msg = await session_service.handle_salesperson_response(
@@ -356,11 +366,8 @@ async def _handle_session_end(conn: Connection, data: dict) -> None:
         )
         await conn.outbound_queue.put(ack)
 
-        # 3. Trigger background rating
+        # 3. Trigger background rating (which will also clean up the lock when done)
         asyncio.create_task(_background_generate_and_send_rating(conn, msg.session_id))
-        
-        # 4. Clean up lock
-        asyncio.create_task(session_service.cleanup_session_lock(msg.session_id))
 
     except Exception as exc:
         logger.exception("Error during manual session end: {}", exc)
@@ -402,6 +409,9 @@ async def _background_generate_and_send_rating(conn: Connection, session_id: str
         logger.exception("Error in background rating generation for {}: {}", session_id, exc)
         # We don't bother the user with a specific background error here
         # but the frontend spinner will eventually time out or show nothing.
+    finally:
+        # Crucial: Clean up the session context and history ONLY AFTER rating is finished
+        asyncio.create_task(session_service.cleanup_session_lock(session_id))
 
 
 async def _handle_evaluation_query(conn: Connection, data: dict) -> None:

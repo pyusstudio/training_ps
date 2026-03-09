@@ -9,6 +9,8 @@ import { useAuth } from "../state/authStore";
 import { SessionTable } from "../components/SessionTable";
 import { LiveFeedPanel } from "../components/LiveFeedPanel";
 import { SessionDetailPanel } from "./SessionDetail";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShieldCheck, LogOut, Terminal, AlertCircle } from "lucide-react";
 
 export function DashboardPage() {
   const { token, setToken } = useAuth();
@@ -65,56 +67,100 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-black via-slate-950 to-black text-zinc-50">
-      <header className="border-b border-zinc-900 bg-black/60 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.25em] text-zinc-500 uppercase">
-              Reflex Training
-            </p>
-            <h1 className="text-lg font-semibold text-zinc-50">
-              Live session dashboard
-            </h1>
+    <div className="min-h-full bg-gradient-to-br from-slate-950 via-[#0a0f1a] to-slate-950 text-slate-50 font-sans selection:bg-emerald-500/30">
+      <header className="border-b border-white/5 bg-slate-950/60 backdrop-blur-2xl sticky top-0 z-50 shadow-md shadow-black/50">
+        <div className="mx-auto max-w-[1400px] px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <ShieldCheck className="text-black w-6 h-6 border border-emerald-300 rounded-xl bg-emerald-400 p-0.5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black tracking-widest text-emerald-400 uppercase drop-shadow-sm">
+                Reflex Command Center
+              </p>
+              <h1 className="text-lg font-black tracking-tight text-white drop-shadow-md">
+                Live Session Telemetry
+              </h1>
+            </div>
           </div>
           <button
             onClick={() => setToken(null)}
-            className="text-xs text-zinc-400 hover:text-zinc-100 border border-zinc-700 rounded-full px-3 py-1"
+            className="flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-5 py-2.5 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-xl"
           >
-            Sign out
+            <LogOut className="w-4 h-4" />
+            Sign Out
           </button>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-4 space-y-4">
-        {error && (
-          <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2">
-            {error}
+
+      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6 relative">
+        {/* Subtle background glow */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/4 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none" />
+
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -10 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0 }}
+              className="text-xs font-medium text-red-400 bg-red-500/10 border border-red-500/20 rounded-2xl px-5 py-4 flex items-center gap-3 backdrop-blur-md shadow-lg overflow-hidden"
+            >
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-10 min-h-[calc(100vh-10rem)]">
+          {/* Left Column (Table + Details) */}
+          <div className="xl:col-span-2 flex flex-col gap-6">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden shadow-black/50"
+            >
+              <SessionTable
+                sessions={sessions}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+              {loading && (
+                <div className="p-4 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-500 bg-black/40 border-t border-white/5">
+                  <Terminal className="w-4 h-4 animate-pulse" />
+                  Synchronizing Telemetry...
+                </div>
+              )}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="flex-1 min-h-[500px]"
+            >
+              <SessionDetailPanel
+                detail={detail}
+                onRefresh={() => {
+                  if (token && selectedId) {
+                    fetchSessionDetail(token, selectedId).then(setDetail).catch(e => setError(e.message));
+                    fetchSessions(token).then(setSessions).catch(e => console.error(e));
+                  }
+                }}
+              />
+            </motion.div>
           </div>
-        )}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
-            <SessionTable
-              sessions={sessions}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-            />
-            {loading && (
-              <p className="text-xs text-zinc-500">
-                Loading sessions from backend…
-              </p>
-            )}
-            <SessionDetailPanel
-              detail={detail}
-              onRefresh={() => {
-                if (token && selectedId) {
-                  fetchSessionDetail(token, selectedId).then(setDetail).catch(e => setError(e.message));
-                  fetchSessions(token).then(setSessions).catch(e => console.error(e));
-                }
-              }}
-            />
-          </div>
-          <div className="lg:col-span-1 h-full">
+
+          {/* Right Column (Live Feed) */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="xl:col-span-1 xl:sticky xl:top-28 h-fit max-h-[calc(100vh-8rem)]"
+          >
             <LiveFeedPanel token={token} />
-          </div>
+          </motion.div>
         </div>
       </main>
     </div>

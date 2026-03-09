@@ -1,0 +1,13 @@
+src/components/LiveFeedPanel.tsx(3,41): error TS2307: Cannot find module 'framer-motion' or its corresponding type declarations.
+src/components/LiveFeedPanel.tsx(4,61): error TS2307: Cannot find module 'lucide-react' or its corresponding type declarations.
+src/components/SessionTable.tsx(3,24): error TS2307: Cannot find module 'framer-motion' or its corresponding type declarations.
+src/components/SessionTable.tsx(4,47): error TS2307: Cannot find module 'lucide-react' or its corresponding type declarations.
+src/pages/Dashboard.tsx(12,41): error TS2307: Cannot find module 'framer-motion' or its corresponding type declarations.
+src/pages/Dashboard.tsx(13,47): error TS2307: Cannot find module 'lucide-react' or its corresponding type declarations.
+src/pages/Dashboard.tsx(109,16): error TS2304: Cannot find name 'AlertCircle'.
+src/pages/Login.tsx(4,24): error TS2307: Cannot find module 'framer-motion' or its corresponding type declarations.
+src/pages/Login.tsx(5,63): error TS2307: Cannot find module 'lucide-react' or its corresponding type declarations.
+src/pages/Login.tsx(87,12): error TS2304: Cannot find name 'AnimatePresence'.
+src/pages/Login.tsx(99,13): error TS2304: Cannot find name 'AnimatePresence'.
+src/pages/SessionDetail.tsx(4,41): error TS2307: Cannot find module 'framer-motion' or its corresponding type declarations.
+src/pages/SessionDetail.tsx(5,135): error TS2307: Cannot find module 'lucide-react' or its corresponding type declarations.

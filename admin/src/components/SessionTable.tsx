@@ -1,5 +1,7 @@
 import React from "react";
 import type { SessionRow } from "../lib/api";
+import { motion } from "framer-motion";
+import { Activity, Clock, Target, Hash } from "lucide-react";
 
 type Props = {
   sessions: SessionRow[];
@@ -9,26 +11,36 @@ type Props = {
 
 export function SessionTable({ sessions, selectedId, onSelect }: Props) {
   return (
-    <div className="bg-card border border-zinc-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-zinc-200">Sessions</h2>
-        <span className="text-xs text-zinc-500">
-          {sessions.length} session{sessions.length === 1 ? "" : "s"}
+    <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/5 overflow-hidden">
+      <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-black/20">
+        <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-3">
+          <Activity className="w-4 h-4 text-emerald-400" />
+          Monitored Sessions
+        </h2>
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+          {sessions.length} Active {sessions.length === 1 ? "" : "Streams"}
         </span>
       </div>
-      <div className="max-h-[420px] overflow-auto">
+
+      <div className="overflow-auto flex-1 custom-scrollbar min-h-[400px]">
         <table className="min-w-full text-sm">
-          <thead className="bg-zinc-900/60 text-xs uppercase text-zinc-500">
+          <thead className="bg-black/40 text-xs font-black uppercase text-slate-500 tracking-widest sticky top-0 z-10 backdrop-blur-md">
             <tr>
-              <th className="px-4 py-2 text-left">Session</th>
-              <th className="px-4 py-2 text-left">Source</th>
-              <th className="px-4 py-2 text-right">Duration</th>
-              <th className="px-4 py-2 text-right">Score</th>
-              <th className="px-4 py-2 text-right">Accuracy</th>
+              <th className="px-6 py-4 text-left font-bold w-1/3">
+                <div className="flex items-center gap-2"><Hash className="w-3 h-3" /> Identifier</div>
+              </th>
+              <th className="px-6 py-4 text-left font-bold">Source</th>
+              <th className="px-6 py-4 text-right font-bold">
+                <div className="flex items-center justify-end gap-2"><Clock className="w-3 h-3" /> Time</div>
+              </th>
+              <th className="px-6 py-4 text-right font-bold">Quality</th>
+              <th className="px-6 py-4 text-right font-bold">
+                <div className="flex items-center justify-end gap-2"><Target className="w-3 h-3" /> Hit Rate</div>
+              </th>
             </tr>
           </thead>
-          <tbody>
-            {sessions.map((s) => {
+          <tbody className="divide-y divide-white/5">
+            {sessions.map((s, idx) => {
               const isSelected = s.id === selectedId;
               const formatDuration = (seconds: number | null) => {
                 if (seconds == null) return "-";
@@ -36,47 +48,59 @@ export function SessionTable({ sessions, selectedId, onSelect }: Props) {
                 const secs = seconds % 60;
                 return `${mins}:${secs.toString().padStart(2, '0')}`;
               };
+
+              const shortId = s.id.split('-')[0].toUpperCase();
+
               return (
-                <tr
+                <motion.tr
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
                   key={s.id}
                   onClick={() => onSelect(s.id)}
-                  className={`cursor-pointer border-t border-zinc-900 hover:bg-zinc-900/60 ${isSelected ? "bg-zinc-900/80" : ""
+                  className={`cursor-pointer transition-all duration-300 group ${isSelected
+                      ? "bg-gradient-to-r from-emerald-500/10 to-transparent border-l-2 border-emerald-500 shadow-[inset_0_1px_rgba(255,255,255,0.05)]"
+                      : "hover:bg-white/5 border-l-2 border-transparent"
                     }`}
                 >
-                  <td className="px-4 py-2">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-zinc-100 truncate">
-                        {s.id}
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      <span className={`font-mono font-bold tracking-wider text-sm transition-colors ${isSelected ? 'text-emerald-400' : 'text-slate-200 group-hover:text-emerald-400'}`}>
+                        {shortId}
                       </span>
-                      <span className="text-xs text-zinc-500">
-                        {new Date(s.started_at).toLocaleString()}
+                      <span className="text-[10px] font-medium text-slate-500 uppercase">
+                        {new Date(s.started_at).toLocaleTimeString()}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-zinc-300">
-                    {s.source.toUpperCase()}
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center px-2 py-1 rounded bg-slate-800/50 border border-slate-700/50 text-[10px] uppercase font-bold tracking-wider text-slate-300">
+                      {s.source}
+                    </span>
                   </td>
-                  <td className="px-4 py-2 text-right text-zinc-400 font-mono">
+                  <td className="px-6 py-4 text-right text-slate-400 font-mono text-xs font-semibold">
                     {formatDuration(s.duration_seconds)}
                   </td>
-                  <td className="px-4 py-2 text-right text-zinc-200">
-                    {s.avg_score ?? "-"}
+                  <td className="px-6 py-4 text-right">
+                    <span className={`text-sm font-bold ${s.avg_score && s.avg_score >= 80 ? 'text-emerald-400' : s.avg_score && s.avg_score >= 60 ? 'text-amber-400' : 'text-slate-400'}`}>
+                      {s.avg_score ?? "-"}
+                    </span>
                   </td>
-                  <td className="px-4 py-2 text-right text-zinc-400">
-                    {s.accuracy_percentage != null
-                      ? `${s.accuracy_percentage}%`
-                      : "-"}
+                  <td className="px-6 py-4 text-right">
+                    <span className="text-sm font-bold text-cyan-400">
+                      {s.accuracy_percentage != null ? `${s.accuracy_percentage}%` : "-"}
+                    </span>
                   </td>
-                </tr>
+                </motion.tr>
               );
             })}
             {sessions.length === 0 && (
               <tr>
-                <td
-                  colSpan={4}
-                  className="px-4 py-6 text-center text-sm text-zinc-500"
-                >
-                  No sessions yet. They will appear here in real time.
+                <td colSpan={5} className="px-6 py-12 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
+                    <Activity className="w-8 h-8 opacity-20" />
+                    <p className="text-sm font-medium tracking-wide">Waiting for inbound telemetry...</p>
+                  </div>
                 </td>
               </tr>
             )}

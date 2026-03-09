@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getWsUrl } from '../lib/api';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Radio, AlertCircle, MessageSquare, Terminal } from 'lucide-react';
 
 type LiveEvent = {
   ts: number;
@@ -14,6 +16,7 @@ type Props = {
 export function LiveFeedPanel({ token }: Props) {
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [connected, setConnected] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -64,69 +67,85 @@ export function LiveFeedPanel({ token }: Props) {
   }, [token]);
 
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-950 h-full flex flex-col">
-      <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-neutral-200">Live Feed</h2>
-        <span
-          className={`inline-flex items-center gap-1 text-xs ${connected ? 'text-reflex-green' : 'text-neutral-500'
-            }`}
-        >
-          <span
-            className={`h-2 w-2 rounded-full ${connected ? 'bg-reflex-green' : 'bg-neutral-600'
-              }`}
-          />
-          {connected ? 'Live' : 'Offline'}
-        </span>
+    <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl relative">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[80px] pointer-events-none" />
+
+      <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-black/40 z-10">
+        <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-3">
+          <Terminal className="w-4 h-4 text-cyan-400" />
+          Raw Telemetry
+        </h2>
+        <div className={`px-3 py-1 rounded-full border flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${connected ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
+          <Radio className={`w-3 h-3 ${connected ? 'animate-pulse' : ''}`} />
+          {connected ? 'Live Feed' : 'Offline'}
+        </div>
       </div>
-      <div className="flex-1 overflow-auto px-4 py-3 text-xs font-mono text-neutral-300 space-y-1">
+
+      <div ref={containerRef} className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-4 space-y-4 font-mono z-10 custom-scrollbar">
         {events.length === 0 ? (
-          <div className="text-neutral-500">
-            Waiting for session events from Unity or training app…
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4 text-slate-500">
+            <Radio className="w-10 h-10 opacity-20" />
+            <p className="text-xs uppercase tracking-widest font-semibold">Awaiting transmission...</p>
           </div>
         ) : (
-          events.map((e) => (
-            <div key={e.ts} className="border-b border-neutral-900 pb-1 mb-1">
-              <div className="flex items-center justify-between">
-                <span className="text-neutral-400">{e.type}</span>
-                <span className="text-neutral-500">
-                  {new Date(e.ts).toLocaleTimeString()}
-                </span>
-              </div>
-              <div className="mt-1">
-                {e.type === 'session_rating' ? (
-                  <div className="rounded bg-indigo-950/30 p-2 border border-indigo-500/20 text-indigo-300">
-                    <div className="font-semibold text-indigo-400 mb-1">AI Rating: {(e.payload as any)?.overall_score}/10</div>
-                    <div className="text-[10px] space-y-1">
-                      <div><span className="text-emerald-400">+]</span> {((e.payload as any)?.strengths || []).join(', ')}</div>
-                      <div><span className="text-amber-400">-]</span> {((e.payload as any)?.improvements || []).join(', ')}</div>
-                      <div className="italic mt-1 text-indigo-400/80">"{(e.payload as any)?.detailed_feedback}"</div>
+          <AnimatePresence initial={false}>
+            {events.map((e) => (
+              <motion.div
+                key={e.ts}
+                initial={{ opacity: 0, x: -20, height: 0 }}
+                animate={{ opacity: 1, x: 0, height: 'auto' }}
+                className="bg-black/40 rounded-xl border border-white/5 p-4 overflow-hidden shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-cyan-400/80 bg-cyan-500/10 px-2 py-0.5 rounded">{e.type}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {new Date(e.ts).toISOString().split('T')[1].slice(0, -1)}
+                  </span>
+                </div>
+
+                <div className="mt-1">
+                  {e.type === 'session_rating' ? (
+                    <div className="rounded-lg bg-indigo-900/30 p-3 border border-indigo-500/20 text-indigo-200 text-xs">
+                      <div className="font-bold text-indigo-400 mb-2 flex items-center gap-2">
+                        <Award className="w-4 h-4" /> Final Evaluation: {(e.payload as any)?.overall_score}/10
+                      </div>
+                      <div className="space-y-1.5 opacity-90">
+                        <div className="flex gap-2"><span className="text-emerald-400 shrink-0 font-bold">[+]</span> <span className="truncate">{((e.payload as any)?.strengths || [])[0] || 'None'}</span></div>
+                        <div className="flex gap-2"><span className="text-amber-400 shrink-0 font-bold">[-]</span> <span className="truncate">{((e.payload as any)?.improvements || [])[0] || 'None'}</span></div>
+                      </div>
                     </div>
-                  </div>
-                ) : e.type === 'session_summary' ? (
-                  <div className="rounded bg-neutral-900/50 p-2 flex gap-3">
-                    <span>Total: <strong className="text-emerald-400">{(e.payload as any)?.total_score}</strong></span>
-                    <span>Avg: <strong className="text-sky-400">{(e.payload as any)?.avg_score}</strong></span>
-                    <span>Acc: <strong className="text-purple-400">{(e.payload as any)?.accuracy_percentage}%</strong></span>
-                  </div>
-                ) : e.type === 'roleplay_event' ? (
-                  <div className="text-neutral-400 flex flex-col">
-                    <span className={(e.payload as any).speaker === 'client' ? 'text-sky-400' : 'text-emerald-400'}>
-                      {(e.payload as any).speaker === 'client' ? 'Client:' : 'Salesperson:'}
-                    </span>
-                    <span className="pl-2">&gt; {(e.payload as any).transcript}</span>
-                  </div>
-                ) : (
-                  <pre className="whitespace-pre-wrap break-all text-neutral-500">
-                    {JSON.stringify(e.payload, null, 2)}
-                  </pre>
-                )}
-              </div>
-            </div>
-          ))
+                  ) : e.type === 'session_summary' ? (
+                    <div className="rounded-lg bg-slate-800/50 p-3 grid grid-cols-3 gap-2 text-center text-xs border border-white/5">
+                      <div className="flex flex-col"><span className="text-slate-500 text-[9px] uppercase">Score</span><strong className="text-emerald-400 text-sm">{(e.payload as any)?.total_score}</strong></div>
+                      <div className="flex flex-col border-x border-white/10"><span className="text-slate-500 text-[9px] uppercase">Avg</span><strong className="text-sky-400 text-sm">{(e.payload as any)?.avg_score}</strong></div>
+                      <div className="flex flex-col"><span className="text-slate-500 text-[9px] uppercase">Accuracy</span><strong className="text-purple-400 text-sm">{(e.payload as any)?.accuracy_percentage}%</strong></div>
+                    </div>
+                  ) : e.type === 'roleplay_event' ? (
+                    <div className="text-sm flex flex-col gap-1.5">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${(e.payload as any).speaker === 'client' ? 'text-sky-400' : 'text-emerald-400'}`}>
+                        {(e.payload as any).speaker === 'client' ? <><MessageSquare className="w-3 h-3" /> Client</> : <><User className="w-3 h-3" /> Salesperson</>}
+                      </span>
+                      <span className="text-slate-300 leading-relaxed font-sans font-medium pl-4 border-l-2 border-slate-700/50">{(e.payload as any).transcript}</span>
+                    </div>
+                  ) : (
+                    <pre className="whitespace-pre-wrap break-all text-[10px] text-slate-400/70 p-2 bg-black/50 rounded overflow-x-auto">
+                      {JSON.stringify(e.payload, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         )}
       </div>
     </div>
   );
 }
 
-
+// Helper icons
+function Award(props: any) {
+  return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20" /><path d="M16 18c1.5-1.5 2.5-3.5 2.5-6s-1-4.5-2.5-6" /><path d="M8 18c-1.5-1.5-2.5-3.5-2.5-6s1-4.5 2.5-6" /></svg>
+}
+function User(props: any) {
+  return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+}

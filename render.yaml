@@ -1,0 +1,37 @@
+services:
+  # Backend API Service
+  - type: web
+    name: reflex-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    rootDir: .
+    healthCheckPath: /health
+    envVars:
+      # Add any backend environment variables here
+      # NOTE: Database connection strings or other secrets should be configured in the Render Dashboard
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+  # Admin Dashboard Service
+  - type: web
+    name: reflex-admin
+    runtime: docker
+    dockerfilePath: ./admin/Dockerfile
+    rootDir: .
+    envVars:
+      - key: VITE_BACKEND_URL
+        value: https://reflex-backend.onrender.com/api
+      - key: VITE_BACKEND_WS_URL
+        value: wss://reflex-backend.onrender.com/api/ws
+
+  # User App Service
+  - type: web
+    name: reflex-app
+    runtime: docker
+    dockerfilePath: ./app/Dockerfile
+    rootDir: .
+    envVars:
+      - key: VITE_BACKEND_URL
+        value: https://reflex-backend.onrender.com/api
+      - key: VITE_BACKEND_WS_URL
+        value: wss://reflex-backend.onrender.com/api/ws

@@ -119,7 +119,7 @@ async def handle_salesperson_response(
             salesperson_step_id = last_step_id + 1
 
             # 1. Score salesperson response
-            score = scoring_service.score(transcript)
+            score = await scoring_service.score(session_id, transcript)
 
             event = RoleplayEvent(
                 id=str(uuid4()),
@@ -133,7 +133,10 @@ async def handle_salesperson_response(
                 reaction_time_ms=reaction_time_ms,
                 features_json={
                     "sentiment": score.sentiment,
-                    "keywords_detected": score.keywords_detected,
+                    "color_hex": score.color_hex,
+                    "empathy_score": score.empathy_score,
+                    "detail_score": score.detail_score,
+                    "tone_alignment_score": score.tone_alignment_score,
                 },
             )
             db.add(event)
@@ -149,6 +152,9 @@ async def handle_salesperson_response(
                 feedback=score.feedback,
                 keywords_detected=score.keywords_detected,
                 color_hex=score.color_hex,
+                empathy_score=score.empathy_score,
+                detail_score=score.detail_score,
+                tone_alignment_score=score.tone_alignment_score,
             )
 
             # 2. Check time limit
@@ -162,7 +168,6 @@ async def handle_salesperson_response(
 
             if remaining > 0:
                 # 3. Get AI client response
-                # Count client messages (excluding greeting)
                 client_msg_count = db.query(RoleplayEvent).filter(
                     RoleplayEvent.session_id == session_id,
                     RoleplayEvent.speaker == "client"
@@ -192,38 +197,37 @@ async def handle_salesperson_response(
                 )
                 
                 if is_final:
-                    # Session ends after the final client message
-                    summary_msg = finalize_session(session_id)
-                    asyncio.create_task(cleanup_session_lock(session_id))
+                    # Reuse *this* db session to avoid double-commit
+                    summary_msg = _finalize_and_summarize(db, session_id)
             else:
-                # 4. Session time is up -> End session
-                summary_msg = finalize_session(session_id)
-                
-                # Rating is now handled separately/asynchronously via websocket.py
-                asyncio.create_task(cleanup_session_lock(session_id))
+                # 4. Session time is up -> reuse this db session
+                summary_msg = _finalize_and_summarize(db, session_id)
 
         return score_msg, next_client_msg, summary_msg, rating_msg
 
 
+def _finalize_and_summarize(db, session_id: str) -> SessionSummaryMessage:
+    """Finalize + summarize using an existing db session (no new context)."""
+    db_session = db.get(DbSession, session_id)
+    if not db_session:
+        raise ValueError(f"Session {session_id} not found")
+    _finalize_session(db, db_session)
+    summary = _build_summary(db, session_id)
+    # Caller's get_db() context will commit
+    return SessionSummaryMessage(
+        type="session_summary",
+        direction="sc",
+        session_id=session_id,
+        total_score=summary.total_score,
+        avg_score=summary.avg_score,
+        accuracy_percentage=summary.accuracy_percentage,
+    )
+
+
 def finalize_session(session_id: str) -> SessionSummaryMessage:
-    """Finalize database records and build the summary message."""
+    """Standalone finalize — opens its own db context. Use from websocket handlers."""
     with get_db() as db:
-        db_session = db.get(DbSession, session_id)
-        if not db_session:
-            raise ValueError(f"Session {session_id} not found")
-            
-        _finalize_session(db, db_session)
-        summary = _build_summary(db, session_id)
-        db.commit()
-        
-        return SessionSummaryMessage(
-            type="session_summary",
-            direction="sc",
-            session_id=session_id,
-            total_score=summary.total_score,
-            avg_score=summary.avg_score,
-            accuracy_percentage=summary.accuracy_percentage,
-        )
+        return _finalize_and_summarize(db, session_id)
 
 
 async def generate_qualitative_rating(session_id: str) -> SessionRatingMessage:

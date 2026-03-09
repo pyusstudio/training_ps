@@ -212,7 +212,7 @@
 - **STT**: Unity-side STT (Meta Voice SDK or similar).
 - **Storage**: In-memory or SQLite.
 - **APIs**: REST endpoints for scoring and session summaries.
-- **Deployment**: Single Dockerized FastAPI service on a small VM (AWS/DigitalOcean).
+- **Deployment**: Configured for Render via `render.yaml` Blueprint, or via Docker Compose on a small VM.
 
 This setup is intentionally **simple, explainable, and fast to build**, while clearly showing a path towards a more advanced AI-powered Reflex Training system if the client approves a full build.
 

@@ -39,6 +39,19 @@ docker-compose up
 
 ---
 
+## ☁️ Deployment (Render)
+
+This project is configured for easy deployment on [Render](https://render.com). The repository includes a `render.yaml` Blueprint which defines all three services (Backend, Admin Dashboard, and User App).
+
+1. Connect your GitHub repository to Render.
+2. Go to the Render dashboard and create a new **Blueprint Instance**.
+3. Select your repository, and Render will automatically detect the `render.yaml` file.
+4. Render will deploy all services and assign them `.onrender.com` subdomains.
+
+**Note**: The Dockerfiles are configured to bind dynamically to the `$PORT` environment variable provided by Render. Check the `render.yaml` file to ensure the backend domain matches what Render assigns you, and update the environment variable overrides in the Render Dashboard if needed.
+
+---
+
 ## 💻 Local Development
 
 If you prefer to run services individually for active development:

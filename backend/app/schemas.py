@@ -56,6 +56,9 @@ class ScoreEventMessage(BaseMessage):
     feedback: Optional[str] = None
     keywords_detected: Optional[list[str]] = None
     color_hex: Optional[str] = None
+    empathy_score: Optional[int] = None
+    detail_score: Optional[int] = None
+    tone_alignment_score: Optional[int] = None
 
 
 class SessionStartedMessage(BaseMessage):

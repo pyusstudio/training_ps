@@ -8,7 +8,18 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setTokenState] = useState<string | null>(() => {
+    return localStorage.getItem("reflex_admin_token");
+  });
+
+  const setToken = (newToken: string | null) => {
+    if (newToken) {
+      localStorage.setItem("reflex_admin_token", newToken);
+    } else {
+      localStorage.removeItem("reflex_admin_token");
+    }
+    setTokenState(newToken);
+  };
 
   return React.createElement(
     AuthContext.Provider,

@@ -20,11 +20,6 @@ class Settings(BaseSettings):
     # CORS / Frontends
     cors_origins: List[AnyUrl] = []
 
-    # AI / ML
-    sbert_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
-    use_learning_model: bool = False
-    learning_model_path: Optional[str] = None
-
     # AI Conversation Providers
     ai_provider: str = "gemini"  # gemini | openai | huggingface | ollama
     gemini_api_key: Optional[str] = None
