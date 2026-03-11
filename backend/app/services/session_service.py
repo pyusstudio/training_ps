@@ -108,6 +108,7 @@ async def handle_salesperson_response(
     transcript: str,
     reaction_time_ms: Optional[int],
 ) -> Tuple[ScoreEventMessage, Optional[ClientUtteranceMessage], Optional[SessionSummaryMessage], Optional[SessionRatingMessage]]:
+    logger.info("Processing salesperson response | session_id={} | transcript_len={}", session_id, len(transcript))
     lock = await _get_session_lock(session_id)
     async with lock:
         with get_db() as db:
@@ -177,6 +178,7 @@ async def handle_salesperson_response(
                 is_final = client_msg_count >= 5
                 
                 client_text = await ai_provider_instance.reply(session_id, transcript, is_final=is_final)
+                logger.info("AI client reply generated | session_id={} | is_final={} | text={}", session_id, is_final, (client_text[:50] + "...") if len(client_text) > 50 else client_text)
                 client_step_id = salesperson_step_id + 1
 
                 client_event = RoleplayEvent(
@@ -213,6 +215,7 @@ def _finalize_and_summarize(db, session_id: str) -> SessionSummaryMessage:
         raise ValueError(f"Session {session_id} not found")
     _finalize_session(db, db_session)
     summary = _build_summary(db, session_id)
+    logger.info("Session finalized | session_id={} | total_score={} | avg_score={}", session_id, summary.total_score, summary.avg_score)
     # Caller's get_db() context will commit
     return SessionSummaryMessage(
         type="session_summary",

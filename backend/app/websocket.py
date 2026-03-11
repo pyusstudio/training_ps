@@ -41,12 +41,12 @@ class ConnectionManager:
     async def connect(self, conn: Connection) -> None:
         async with self._lock:
             self._connections.add(conn)
-        logger.info("WebSocket connected role={} user_id={}", conn.role, conn.user_id)
+        logger.info("WebSocket connected | role={} | user_id={} | connections={}", conn.role, conn.user_id, len(self._connections))
 
     async def disconnect(self, conn: Connection) -> None:
         async with self._lock:
             self._connections.discard(conn)
-        logger.info("WebSocket disconnected role={} user_id={}", conn.role, conn.user_id)
+        logger.info("WebSocket disconnected | role={} | user_id={} | connections={}", conn.role, conn.user_id, len(self._connections))
 
     async def broadcast(
         self,
@@ -141,6 +141,9 @@ async def _receiver(conn: Connection, shutdown: asyncio.Event) -> None:
     while not shutdown.is_set():
         try:
             data = await conn.websocket.receive_json()
+            msg_type = data.get("type", "unknown")
+            session_id = data.get("session_id", "N/A")
+            logger.debug("Received WebSocket message | type={} | session_id={} | user_id={}", msg_type, session_id, conn.user_id)
         except WebSocketDisconnect:
             break  # End loop on disconnect
         except RuntimeError as e:
