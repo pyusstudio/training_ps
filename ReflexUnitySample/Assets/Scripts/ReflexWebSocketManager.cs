@@ -13,11 +13,13 @@ public class ReflexWebSocketManager : MonoBehaviour
     // [Header("Backend WebSocket Settings")]
     private string backendUrl = "wss://training-ps.onrender.com/ws?role=trainee";
     public string userId = "unity_user_1";
-    public bool autoStartSessionOnConnect = true;
+    public bool autoStartSessionOnConnect = false;
 
     private string currentSessionId = "";
     private bool isConnected;
     private bool sessionActive;
+    public bool IsSessionActive => sessionActive;
+
 
     // Simple main-thread dispatch queue for WebSocketSharp callbacks
     private readonly Queue<Action> mainThreadActions = new Queue<Action>();
