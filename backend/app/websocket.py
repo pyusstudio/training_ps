@@ -201,8 +201,10 @@ async def _handle_session_start(conn: Connection, data: dict) -> None:
         source=msg.source,
         user_id=msg.user_id or conn.user_id,
         scenario=msg.scenario,
+        persona_id=msg.persona_id,
     )
     conn.session_id = started.session_id
+    logger.info("Session started with persona: {}", msg.persona_id)
     await conn.outbound_queue.put(started)
     await conn.outbound_queue.put(first_utterance)
 

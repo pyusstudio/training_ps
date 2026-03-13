@@ -6,6 +6,7 @@ from .config import get_settings
 from .db import Base, engine
 from .api.auth import router as auth_router
 from .api.admin import router as admin_router
+from .api.questions import router as questions_router
 from .services.auth_service import ensure_default_admin
 from .websocket import router as websocket_router
 
@@ -44,4 +45,5 @@ def health() -> dict[str, str]:
 app.include_router(websocket_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(questions_router)
 

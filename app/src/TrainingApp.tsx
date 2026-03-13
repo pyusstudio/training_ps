@@ -15,8 +15,14 @@ import {
   ShieldCheck,
   AlertCircle,
   RefreshCw,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { createTrainingSocket } from "./lib/ws";
+import { PersonaSelector, PersonaId } from "./components/PersonaSelector";
+import { useVoice } from "./lib/useVoice";
 
 type Message = {
   id: string;
@@ -59,6 +65,8 @@ export function TrainingApp() {
   const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetrics | null>(null);
   const [sessionStatus, setSessionStatus] = useState<"idle" | "active" | "ending">("idle");
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<PersonaId>("elena");
+  const { isListening, isTtsEnabled, startListening, stopListening, speak, toggleTts, supported: voiceSupported } = useVoice();
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const lastClientMsgTime = useRef<number | null>(null);
@@ -131,6 +139,12 @@ export function TrainingApp() {
               text: data.text,
               timestamp: new Date()
             }]);
+            
+            // Speak the incoming message
+            if (data.text) {
+              speak(data.text);
+            }
+
             if (data.time_remaining_seconds !== undefined) {
               setTimeRemaining(data.time_remaining_seconds);
             }
@@ -233,7 +247,8 @@ export function TrainingApp() {
     const msg = {
       type: "session_start",
       direction: "cs",
-      source: "app"
+      source: "app",
+      persona_id: selectedPersonaId
     };
     socket.send(JSON.stringify(msg));
   }
@@ -279,7 +294,22 @@ export function TrainingApp() {
     socket.send(JSON.stringify(msg));
     setTranscript("");
     setIsTyping(true);
+    
+    // Stop listening after sending if it was listening
+    if (isListening) {
+      stopListening();
+    }
   }
+
+  const toggleMic = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening((text, isFinal) => {
+        setTranscript(text);
+      });
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -341,6 +371,15 @@ export function TrainingApp() {
               </div>
             )}
 
+            <div className="w-10 h-10 rounded-full border border-white/10 p-0.5 bg-white/5 backdrop-blur-sm hidden md:block group relative">
+              <div className="w-full h-full rounded-full bg-black/50 flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors" onClick={toggleTts}>
+                {isTtsEnabled ? <Volume2 className="w-5 h-5 text-emerald-400" /> : <VolumeX className="w-5 h-5 text-slate-500" />}
+              </div>
+              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-[8px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-white/10 pointer-events-none uppercase tracking-tighter">
+                {isTtsEnabled ? "Mute Voice" : "Unmute Voice"}
+              </div>
+            </div>
+
             <div className="w-10 h-10 rounded-full border border-white/10 p-0.5 bg-white/5 backdrop-blur-sm hidden md:block">
               <div className="w-full h-full rounded-full bg-black/50 flex items-center justify-center">
                 <User className="w-5 h-5 text-slate-300" />
@@ -376,6 +415,12 @@ export function TrainingApp() {
                   <p className="max-w-md text-slate-400 text-base md:text-lg leading-relaxed mb-8 md:mb-10 font-medium">
                     Step into the simulation. Practice your pitch, overcome objections, and refine your closing techniques.
                   </p>
+
+                  <PersonaSelector 
+                    selectedId={selectedPersonaId} 
+                    onSelect={setSelectedPersonaId} 
+                    disabled={!connected}
+                  />
 
                   <button
                     onClick={startTrainingSession}
@@ -679,6 +724,19 @@ export function TrainingApp() {
                 className="w-full h-12 md:h-16 bg-transparent relative z-10 rounded-[1.5rem] md:rounded-[2rem] px-4 md:px-8 pr-14 md:pr-20 text-sm md:text-lg font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all disabled:opacity-50 cursor-text"
                 autoComplete="off"
               />
+              <div className="absolute right-12 md:right-16 top-1/2 -translate-y-1/2 z-20">
+                {voiceSupported && sessionStatus === "active" && (
+                  <button
+                    type="button"
+                    onClick={toggleMic}
+                    className={`w-9 h-9 md:w-12 md:h-12 rounded-[1rem] md:rounded-[1.2rem] flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg ${
+                      isListening ? 'bg-red-500/20 text-red-500 border border-red-500/50 pulse-animation' : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
+                  </button>
+                )}
+              </div>
               <div className="absolute right-1.5 md:right-3 top-1/2 -translate-y-1/2 z-20">
                 <button
                   type="submit"

@@ -10,7 +10,7 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import RoleplayEvent, Session as DbSession, SessionSummary
+from ..models import RoleplayEvent, Session as DbSession, SessionSummary, SystemQuestion
 from ..schemas import (
     ClientUtteranceMessage,
     ScoreEventMessage,
@@ -20,6 +20,7 @@ from ..schemas import (
 )
 from .scoring import scoring_service
 from .ai_service import ai_provider_instance, SessionRating
+from .rag_service import rag_service
 from ..config import get_settings
 
 _SETTINGS = get_settings()
@@ -45,7 +46,7 @@ async def cleanup_session_lock(session_id: str) -> None:
 
 
 def _create_db_session(
-    db: Session, source: str, user_id: Optional[str], scenario: Optional[str], first_text: str
+    db: Session, source: str, user_id: Optional[str], scenario: Optional[str], persona_id: str, first_text: str
 ) -> DbSession:
     session_id = str(uuid4())
     db_session = DbSession(
@@ -53,6 +54,7 @@ def _create_db_session(
         user_id=user_id,
         source=source,
         scenario=scenario or "default_scenario",
+        persona_id=persona_id,
         started_at=datetime.utcnow(),
     )
     db.add(db_session)
@@ -72,13 +74,13 @@ def _create_db_session(
 
 
 async def start_session(
-    source: str, user_id: Optional[str], scenario: Optional[str]
+    source: str, user_id: Optional[str], scenario: Optional[str], persona_id: str = "elena"
 ) -> Tuple[SessionStartedMessage, ClientUtteranceMessage]:
     # Use AI to generate opening line
-    first_text = await ai_provider_instance.start_conversation("temp_id", scenario)
+    first_text = await ai_provider_instance.start_conversation("temp_id", persona_id)
     
     with get_db() as db:
-        db_session = _create_db_session(db, source=source, user_id=user_id, scenario=scenario, first_text=first_text)
+        db_session = _create_db_session(db, source=source, user_id=user_id, scenario=scenario, persona_id=persona_id, first_text=first_text)
         session_id = db_session.id
         logger.info("Started session {}", session_id)
         
@@ -90,6 +92,7 @@ async def start_session(
         direction="sc",
         session_id=session_id,
         user_id=user_id,
+        persona_id=persona_id,
     )
 
     utterance = ClientUtteranceMessage(
@@ -177,7 +180,14 @@ async def handle_salesperson_response(
                 # Limit is 4 questions + 1 greeting = 5 messages total before wrap-up
                 is_final = client_msg_count >= 5
                 
-                client_text = await ai_provider_instance.reply(session_id, transcript, is_final=is_final)
+                # Fetch suggested questions from RAG
+                suggested_question_ids = await rag_service.search_questions(transcript)
+                suggested_texts = []
+                if suggested_question_ids:
+                    suggested_questions = db.query(SystemQuestion).filter(SystemQuestion.id.in_(suggested_question_ids)).all()
+                    suggested_texts = [q.text for q in suggested_questions]
+
+                client_text = await ai_provider_instance.reply(session_id, transcript, is_final=is_final, suggested_questions=suggested_texts)
                 logger.info("AI client reply generated | session_id={} | is_final={} | text={}", session_id, is_final, (client_text[:50] + "...") if len(client_text) > 50 else client_text)
                 client_step_id = salesperson_step_id + 1
 

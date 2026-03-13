@@ -103,6 +103,47 @@ export async function generateSessionRating(
   return (await res.json()) as SessionDetail;
 }
 
+export type SystemQuestion = {
+  id: string;
+  text: string;
+  tags: string | null;
+  is_active: number;
+  created_at: string;
+};
+
+export async function fetchQuestions(): Promise<SystemQuestion[]> {
+  const res = await fetch(`${API_BASE}/api/admin/questions/`);
+  if (!res.ok) throw new Error("Failed to load questions");
+  return (await res.json()) as SystemQuestion[];
+}
+
+export async function createQuestion(data: Partial<SystemQuestion>): Promise<SystemQuestion> {
+  const res = await fetch(`${API_BASE}/api/admin/questions/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error("Failed to create question");
+  return (await res.json()) as SystemQuestion;
+}
+
+export async function updateQuestion(id: string, data: Partial<SystemQuestion>): Promise<SystemQuestion> {
+  const res = await fetch(`${API_BASE}/api/admin/questions/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error("Failed to update question");
+  return (await res.json()) as SystemQuestion;
+}
+
+export async function deleteQuestion(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/admin/questions/${id}`, {
+    method: "DELETE"
+  });
+  if (!res.ok) throw new Error("Failed to delete question");
+}
+
 export function getWsUrl(): string {
   const configured = (import.meta as any).env.VITE_BACKEND_WS_URL as
     | string

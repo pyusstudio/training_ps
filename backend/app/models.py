@@ -36,6 +36,7 @@ class Session(Base):
     ended_at = Column(DateTime, nullable=True)
     duration_seconds = Column(Integer, nullable=True)
     briefing_completed = Column(Integer, nullable=True)
+    persona_id = Column(String, nullable=False, default="elena")
 
     user = relationship("User", back_populates="sessions")
     events = relationship("RoleplayEvent", back_populates="session")
@@ -82,5 +83,15 @@ class LogEntry(Base):
     level = Column(String, nullable=False)
     message = Column(String, nullable=False)
     payload_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SystemQuestion(Base):
+    __tablename__ = "system_questions"
+
+    id = Column(String, primary_key=True, index=True)
+    text = Column(String, nullable=False)
+    tags = Column(String, nullable=True) # comma-separated
+    is_active = Column(Integer, default=1, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
