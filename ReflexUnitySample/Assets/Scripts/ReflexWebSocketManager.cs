@@ -155,7 +155,7 @@ public class ReflexWebSocketManager : MonoBehaviour
 
     #region Outbound Messages
 
-    public void StartSession(string personaId = "elena")
+    public void StartSession()
     {
         if (!isConnected)
         {
@@ -175,8 +175,7 @@ public class ReflexWebSocketManager : MonoBehaviour
             direction = "cs", // client-to-server
             source = "unity",
             scenario = "sales_training", // Replace with your scenario
-            user_id = userId,
-            persona_id = personaId
+            user_id = userId
         };
         SendWebSocketMessage(msg);
     }

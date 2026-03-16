@@ -6,20 +6,16 @@ using UnityEngine;
 using UnityEngine.Networking;
 using Newtonsoft.Json;
 
-public class ElevenLabsManager : MonoBehaviour, IVoiceProvider
+public class DeepgramManager : MonoBehaviour, IVoiceProvider
 {
-    public static ElevenLabsManager Instance { get; private set; }
+    public static DeepgramManager Instance { get; private set; }
 
-    [Header("ElevenLabs API Settings")]
+    [Header("Deepgram API Settings")]
     public string apiKey;
-    public string voiceId = "21m00Tcm4TlvDq8ikWAM"; // default voice ID
-    public string modelId = "eleven_multilingual_v2";
-
-    [Header("STT Settings")]
-    public string sttModelId = "scribe_v1";
+    public string ttsModel = "aura-asteria-en";
+    public string sttModel = "nova-2";
 
     [Header("Audio Output")]
-    [Tooltip("If left empty, a new AudioSource will be created automatically.")]
     public AudioSource audioSource;
 
     public bool IsPlaying { get; private set; }
@@ -48,19 +44,9 @@ public class ElevenLabsManager : MonoBehaviour, IVoiceProvider
 
     private IEnumerator TTSCoroutine(string text, Action onComplete)
     {
-        string url = $"https://api.elevenlabs.io/v1/text-to-speech/{voiceId}";
+        string url = $"https://api.deepgram.com/v1/speak?model={ttsModel}";
 
-        var body = new
-        {
-            text = text,
-            model_id = modelId,
-            voice_settings = new
-            {
-                stability = 0.5f,
-                similarity_boost = 0.75f
-            }
-        };
-
+        var body = new { text = text };
         string json = JsonConvert.SerializeObject(body);
         byte[] bytes = Encoding.UTF8.GetBytes(json);
 
@@ -69,7 +55,7 @@ public class ElevenLabsManager : MonoBehaviour, IVoiceProvider
             request.uploadHandler = new UploadHandlerRaw(bytes);
             request.downloadHandler = new DownloadHandlerAudioClip(url, AudioType.MPEG);
             request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("xi-api-key", apiKey);
+            request.SetRequestHeader("Authorization", $"Token {apiKey}");
 
             yield return request.SendWebRequest();
 
@@ -86,7 +72,7 @@ public class ElevenLabsManager : MonoBehaviour, IVoiceProvider
             }
             else
             {
-                Debug.LogError($"TTS Error: {request.error}\n{request.downloadHandler.text}");
+                Debug.LogError($"Deepgram TTS Error: {request.error}\n{request.downloadHandler.text}");
             }
         }
     }
@@ -98,35 +84,59 @@ public class ElevenLabsManager : MonoBehaviour, IVoiceProvider
 
     private IEnumerator STTCoroutine(byte[] wavData, Action<string> onTranscriptReceived)
     {
-        string url = "https://api.elevenlabs.io/v1/speech-to-text";
+        string url = $"https://api.deepgram.com/v1/listen?model={sttModel}&smart_format=true";
 
-        IMultipartFormSection formData = new MultipartFormFileSection("file", wavData, "audio.wav", "audio/wav");
-        List<IMultipartFormSection> formList = new List<IMultipartFormSection> { formData };
-        
-        // Note: model_id is usually passed as a field in multipart form if needed
-        formList.Add(new MultipartFormDataSection("model_id", sttModelId));
-
-        using (UnityWebRequest request = UnityWebRequest.Post(url, formList))
+        using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
         {
-            request.SetRequestHeader("xi-api-key", apiKey);
+            request.uploadHandler = new UploadHandlerRaw(wavData);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "audio/wav");
+            request.SetRequestHeader("Authorization", $"Token {apiKey}");
 
             yield return request.SendWebRequest();
 
             if (request.result == UnityWebRequest.Result.Success)
             {
                 string jsonResponse = request.downloadHandler.text;
-                Debug.Log("STT Response: " + jsonResponse);
+                Debug.Log("Deepgram STT Response: " + jsonResponse);
                 
-                var response = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
-                if (response.ContainsKey("text"))
+                var response = JsonConvert.DeserializeObject<DeepgramSTTResponse>(jsonResponse);
+                if (response?.results?.channels?.Count > 0 && 
+                    response.results.channels[0].alternatives?.Count > 0)
                 {
-                    onTranscriptReceived?.Invoke(response["text"].ToString());
+                    string transcript = response.results.channels[0].alternatives[0].transcript;
+                    onTranscriptReceived?.Invoke(transcript);
                 }
             }
             else
             {
-                Debug.LogError($"STT Error: {request.error}\n{request.downloadHandler.text}");
+                Debug.LogError($"Deepgram STT Error: {request.error}\n{request.downloadHandler.text}");
             }
         }
+    }
+
+    [Serializable]
+    public class DeepgramSTTResponse
+    {
+        public Results results;
+    }
+
+    [Serializable]
+    public class Results
+    {
+        public List<Channel> channels;
+    }
+
+    [Serializable]
+    public class Channel
+    {
+        public List<Alternative> alternatives;
+    }
+
+    [Serializable]
+    public class Alternative
+    {
+        public string transcript;
+        public float confidence;
     }
 }

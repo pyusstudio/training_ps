@@ -879,7 +879,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ElevenLabsManager
   apiKey: sk_f5765d77b6bd45f6bbeeb8196fbfb08afdbeacffde5aabf2
-  voiceId: 21m00Tcm4TlvDq8ikWAM
+  voiceId: ErXwobaYiN019PkySvjV
   modelId: eleven_multilingual_v2
   sttModelId: scribe_v1
   audioSource: {fileID: 1633649048}
