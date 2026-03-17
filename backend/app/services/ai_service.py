@@ -285,19 +285,22 @@ class GeminiProvider(AIProvider):
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
         prompt = f"""
-Review the following car dealership roleplay conversation between a salesperson and a customer.
+You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
+
 Transcript:
 {transcript}
 
-As an Automotive Sales Manager, provide a structured JSON rating with:
-- overall_score (integer 1-10): Evaluate complete performance (Needs Assessment, Presentation, Overcoming Objections, Closing).
-- strengths (list of strings, max 3): Specific automotive sales competencies demonstrated well.
-- improvements (list of strings, max 3): Specific areas needing development.
-- detailed_feedback (object): A detailed JSON object for the Evaluation Report. It MUST contain exactly these keys:
-  - "customer_engagement": String detailing rapport building and atmosphere.
-  - "needs_assessment_and_pitch": String evaluating product knowledge and pitch.
-  - "objection_handling_and_closing": String evaluating how objections were handled and closing.
-  - "areas_for_improvement": Array of strings providing specific actionable coachings.
+YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
+
+Provide a structured JSON rating with:
+- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Overcoming Objections, Closing).
+- strengths (list of strings, max 3): Specific sales competencies the SALESPERSON demonstrated well.
+- improvements (list of strings, max 3): Specific areas where the SALESPERSON needs development.
+- detailed_feedback (object): A detailed JSON object. It MUST contain exactly these keys:
+  - "customer_engagement": How well the SALESPERSON built rapport and a comfortable atmosphere.
+  - "needs_assessment_and_pitch": How accurately the SALESPERSON assessed needs and tailored their pitch.
+  - "objection_handling_and_closing": How effectively the SALESPERSON handled objections and moved toward closing.
+  - "areas_for_improvement": Array of strings with specific, actionable coaching tips for the SALESPERSON.
 
 Respond ONLY with valid JSON.
 """
@@ -390,19 +393,22 @@ class OpenAIProvider(AIProvider):
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
         prompt = f"""
-Review the following car dealership roleplay conversation between a salesperson and a customer.
+You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
+
 Transcript:
 {transcript}
 
-As an Automotive Sales Manager, provide a structured JSON rating with:
-- overall_score (integer 1-10): Evaluate overall performance (Needs Assessment, Presentation, Closing).
-- strengths (array of strings, max 3): Specific sales competencies used effectively.
-- improvements (array of strings, max 3): Areas of the sales process to improve.
-- detailed_feedback (object): A detailed JSON object for the Evaluation Report. It MUST contain exactly these keys:
-  - "customer_engagement": String detailing rapport building and atmosphere.
-  - "needs_assessment_and_pitch": String evaluating product knowledge and pitch.
-  - "objection_handling_and_closing": String evaluating how objections were handled and closing.
-  - "areas_for_improvement": Array of strings providing specific actionable coachings.
+YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
+
+Provide a structured JSON rating with:
+- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Closing).
+- strengths (array of strings, max 3): Specific sales competencies the SALESPERSON demonstrated well.
+- improvements (array of strings, max 3): Areas of the sales process where the SALESPERSON needs to improve.
+- detailed_feedback (object): A detailed JSON object. It MUST contain exactly these keys:
+  - "customer_engagement": How well the SALESPERSON built rapport and a comfortable atmosphere.
+  - "needs_assessment_and_pitch": How accurately the SALESPERSON assessed needs and tailored their pitch.
+  - "objection_handling_and_closing": How effectively the SALESPERSON handled objections and moved toward closing.
+  - "areas_for_improvement": Array of strings with specific, actionable coaching tips for the SALESPERSON.
 """
         try:
             response = await self.client.chat.completions.create(
@@ -512,19 +518,22 @@ class HuggingFaceProvider(AIProvider):
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
         prompt = f"""
-Review the following car dealership roleplay conversation between a salesperson and a customer.
+You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
+
 Transcript:
 {transcript}
 
-As an Automotive Sales Manager, provide a structured JSON rating with:
-- overall_score (integer 1-10): Evaluate overall performance (Needs Assessment, Presentation, Closing).
-- strengths (array of strings, max 3): Specific sales competencies used effectively.
-- improvements (array of strings, max 3): Areas of the sales process to improve.
-- detailed_feedback (object): A detailed JSON object for the Evaluation Report. It MUST contain exactly these keys:
-  - "customer_engagement": String detailing rapport building and atmosphere.
-  - "needs_assessment_and_pitch": String evaluating product knowledge and pitch.
-  - "objection_handling_and_closing": String evaluating how objections were handled and closing.
-  - "areas_for_improvement": Array of strings providing specific actionable coachings.
+YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
+
+Provide a structured JSON rating with:
+- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Closing).
+- strengths (array of strings, max 3): Specific sales competencies the SALESPERSON demonstrated well.
+- improvements (array of strings, max 3): Areas of the sales process where the SALESPERSON needs to improve.
+- detailed_feedback (object): A detailed JSON object. It MUST contain exactly these keys:
+  - "customer_engagement": How well the SALESPERSON built rapport and a comfortable atmosphere.
+  - "needs_assessment_and_pitch": How accurately the SALESPERSON assessed needs and tailored their pitch.
+  - "objection_handling_and_closing": How effectively the SALESPERSON handled objections and moved toward closing.
+  - "areas_for_improvement": Array of strings with specific, actionable coaching tips for the SALESPERSON.
 Respond ONLY with a raw JSON object. Do not use markdown backticks or explanations.
 """
         try:
@@ -645,19 +654,22 @@ class OllamaProvider(AIProvider):
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
         prompt = f"""
-Review the following car dealership roleplay conversation between a salesperson and a customer.
+You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
+
 Transcript:
 {transcript}
 
-As an Automotive Sales Manager, provide a structured JSON rating with:
-- overall_score (integer 1-10): Evaluate overall performance (Needs Assessment, Presentation, Closing).
-- strengths (array of strings, max 3): Specific sales competencies used effectively.
-- improvements (array of strings, max 3): Areas of the sales process to improve.
-- detailed_feedback (object): A detailed JSON object for the Evaluation Report. It MUST contain exactly these keys:
-  - "customer_engagement": String detailing rapport building and atmosphere.
-  - "needs_assessment_and_pitch": String evaluating product knowledge and pitch.
-  - "objection_handling_and_closing": String evaluating how objections were handled and closing.
-  - "areas_for_improvement": Array of strings providing specific actionable coachings.
+YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
+
+Provide a structured JSON rating with:
+- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Closing).
+- strengths (array of strings, max 3): Specific sales competencies the SALESPERSON demonstrated well.
+- improvements (array of strings, max 3): Areas of the sales process where the SALESPERSON needs to improve.
+- detailed_feedback (object): A detailed JSON object. It MUST contain exactly these keys:
+  - "customer_engagement": How well the SALESPERSON built rapport and a comfortable atmosphere.
+  - "needs_assessment_and_pitch": How accurately the SALESPERSON assessed needs and tailored their pitch.
+  - "objection_handling_and_closing": How effectively the SALESPERSON handled objections and moved toward closing.
+  - "areas_for_improvement": Array of strings with specific, actionable coaching tips for the SALESPERSON.
 Respond ONLY with a raw JSON object.
 """
         try:
