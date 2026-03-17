@@ -34,7 +34,6 @@ The platform has **three main components:**
 | Component | Description |
 |---|---|
 | **Unity App** | VR/AR environment where the trainee has the live voice conversation |
-| **Training Web App** | A browser-based app for web-based roleplay sessions (non-Unity) |
 | **Admin Dashboard** | A web panel for managers/supervisors to monitor sessions live and review historical results |
 
 ---
@@ -212,13 +211,13 @@ Below is a sample interaction with the **Elena** persona:
 
 After **every salesperson response**, the AI evaluates that reply immediately and returns a score. This score is displayed in real-time on both the Unity HUD and the admin live feed.
 
-Each reply is evaluated on **three dimensions:**
+Each reply is evaluated on **three dimensions**, graded according to **dealership best practices**:
 
 | Dimension | Weight | What it measures |
 |---|---|---|
-| **Empathy** (0–10) | 40% | Rapport building, active listening, validating concerns, professional demeanor |
-| **Detail** (0–10) | 40% | Needs assessment, tailored feature-benefit presentation, product knowledge, transparency |
-| **Tone Alignment** (0–10) | 20% | Communication style adaptation, confidence, objection handling, trial closing |
+| **Empathy** (0–10) | 40% | Building rapport, active listening, validating customer concerns, professional demeanor |
+| **Detail** (0–10) | 40% | Needs assessment, tailored feature-benefit presentation, transparency, product knowledge |
+| **Tone Alignment** (0–10) | 20% | Adapting communication style, professional confidence, handling objections, trial closing |
 
 **Final score** = `(Empathy × 0.4) + (Detail × 0.4) + (Tone × 0.2)` → scaled to 0–100.
 
@@ -232,23 +231,25 @@ Each reply is evaluated on **three dimensions:**
 | 30–49 | ⚫ **The Order-Taker** | Grey |
 | 0–29 | 🔴 **The Liability** | Red |
 
-Each reply also produces **one sentence of actionable coaching feedback** that is displayed to the trainee immediately.
+Each reply also produces **1–2 sentences of actionable coaching feedback** (based on industry standards) that are displayed to the trainee immediately.
 
 ---
 
 ### 2.6 Post-Session AI Rating Report
 
-At the end of every session the AI generates a **comprehensive qualitative rating report** containing:
+At the end of every session the AI generates a **comprehensive qualitative rating report**.
+
+> **Important:** The rating evaluates **only the salesperson's messages**. The AI customer's replies are used purely as context to understand how the salesperson performed — the customer's own turns are never scored.
 
 | Field | Description |
 |---|---|
-| **Overall Score** (1–10) | Holistic rating of the full session |
-| **Strengths** (up to 3) | Specific automotive sales competencies demonstrated well |
-| **Improvements** (up to 3) | Specific areas needing development |
-| **Customer Engagement** | Narrative on how well rapport was built |
-| **Needs Assessment & Pitch** | Evaluation of product knowledge and pitch quality |
-| **Objection Handling & Closing** | Assessment of how objections were handled and closing attempted |
-| **Areas for Improvement** | Specific, actionable coaching points |
+| **Overall Score** (1–10) | Salesperson's overall performance across Needs Assessment, Presentation, Overcoming Objections, and Closing |
+| **Strengths** (up to 3) | Specific sales competencies the salesperson demonstrated well |
+| **Improvements** (up to 3) | Specific areas where the salesperson needs development |
+| **Customer Engagement** | How well the salesperson built rapport and a comfortable atmosphere |
+| **Needs Assessment & Pitch** | How accurately the salesperson assessed the customer's needs and tailored their pitch |
+| **Objection Handling & Closing** | How effectively the salesperson handled objections and moved toward closing |
+| **Areas for Improvement** | An array of specific, actionable coaching tips for the salesperson |
 
 This report is stored in the database and is fully visible in the admin session detail view.
 
@@ -323,7 +324,7 @@ The backend is a **Python FastAPI** application. It is fully asynchronous and ha
 
 | Service | Responsibility |
 |---|---|
-| **WebSocket Gateway** | Single `/ws` endpoint handles all real-time communication for Unity, the web training app, and admin clients |
+| **WebSocket Gateway** | Single `/ws` endpoint handles all real-time communication for Unity and admin clients |
 | **Session Service** | Orchestrates the full session lifecycle: start, per-turn processing, finalization, and summary generation |
 | **Scoring Service** | Calls the AI to evaluate each salesperson reply and returns the intent score, category, and feedback |
 | **AI Service** | Abstraction layer over the configured LLM provider (Gemini, OpenAI, HuggingFace, or Ollama) |
@@ -369,18 +370,15 @@ The diagram below illustrates how the three client types communicate with the ba
 ```
 ┌─────────────────────┐        WebSocket /ws?role=unity       ┌─────────────────────────┐
 │   Unity / VR App    │ ◄────────────────────────────────────► │                         │
-└─────────────────────┘                                         │                         │
-                                                                │   FastAPI Backend       │
-┌─────────────────────┐        WebSocket /ws?role=app          │                         │
-│  Web Training App   │ ◄────────────────────────────────────► │   ┌─────────────────┐   │
-└─────────────────────┘                                         │   │  Session Service │   │
-                                                                │   │  Scoring Service │   │
-┌─────────────────────┐  WebSocket /ws?role=admin&token=...     │   │  AI Service      │   │
-│   Admin Dashboard   │ ◄────────────────────────────────────► │   │  RAG Service     │   │
-│  (Live Feed Panel)  │                                         │   └─────────────────┘   │
-│                     │        REST API /api/admin/...          │                         │
-│  (Sessions / Mgmt)  │ ◄────────────────────────────────────► │                         │
-└─────────────────────┘                                         └───────────┬─────────────┘
+└─────────────────────┘                                         │   FastAPI Backend       │
+                                                                │                         │
+┌─────────────────────┐  WebSocket /ws?role=admin&token=...     │   ┌─────────────────┐   │
+│   Admin Dashboard   │ ◄────────────────────────────────────► │   │  Session Service │   │
+│  (Live Feed Panel)  │                                         │   │  Scoring Service │   │
+│                     │        REST API /api/admin/...          │   │  AI Service      │   │
+│  (Sessions / Mgmt)  │ ◄────────────────────────────────────► │   │  RAG Service     │   │
+└─────────────────────┘                                         │   └─────────────────┘   │
+                                                                └───────────┬─────────────┘
                                                                             │
                                                                     ┌───────▼────────┐
                                                                     │   MongoDB      │

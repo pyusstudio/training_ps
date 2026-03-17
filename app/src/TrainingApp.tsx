@@ -124,7 +124,7 @@ export function TrainingApp() {
             setMessages([{
               id: `sys-${Date.now()}`,
               sender: "system",
-              text: "Session started. The AI trainee will greet you shortly.",
+              text: "Session started. The AI customer persona will greet you shortly.",
               timestamp: new Date()
             }]);
             setRating(null);
@@ -602,12 +602,20 @@ export function TrainingApp() {
                   <div className="relative z-10 space-y-8">
                      <h4 className="text-xs font-black uppercase tracking-[0.4em] text-slate-500 mb-10 text-center italic">Advanced Performance Debrief</h4>
                      
-                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                        <div className="space-y-8 border-r border-white/5 pr-10">
+                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                        <div className="space-y-8">
                            <div>
                              <h5 className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-3 flex items-center gap-2">Engagement Control</h5>
                              <p className="text-sm text-slate-300 leading-relaxed font-medium">{rating.detailed_feedback.customer_engagement}</p>
                            </div>
+                        </div>
+                        <div className="space-y-8">
+                           <div>
+                             <h5 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">Assessment & Pitch</h5>
+                             <p className="text-sm text-slate-300 leading-relaxed font-medium">{rating.detailed_feedback.needs_assessment_and_pitch}</p>
+                           </div>
+                        </div>
+                        <div className="space-y-8">
                            <div>
                              <h5 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-3 flex items-center gap-2">Tactical Close</h5>
                              <p className="text-sm text-slate-300 leading-relaxed font-medium">{rating.detailed_feedback.objection_handling_and_closing}</p>
