@@ -6,8 +6,8 @@ import { ShieldCheck, ArrowRight, Lock, Activity, User } from "lucide-react";
 
 export function LoginPage() {
   const { setToken } = useAuth();
-  const [email, setEmail] = useState("admin@example.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
