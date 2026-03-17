@@ -9,7 +9,11 @@ ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt /app/requirements.txt
 
-# Install Python dependencies
+# Install heavy ML packages first (they have large builds; split to reduce peak memory)
+RUN pip install --no-cache-dir "faiss-cpu==1.9.0"
+RUN pip install --no-cache-dir "fastembed==0.4.1"
+
+# Install remaining dependencies
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY app /app/app
