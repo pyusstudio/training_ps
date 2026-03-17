@@ -15,8 +15,15 @@ import {
   ShieldCheck,
   AlertCircle,
   RefreshCw,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Activity,
 } from "lucide-react";
 import { createTrainingSocket } from "./lib/ws";
+import { PersonaSelector, PersonaId } from "./components/PersonaSelector";
+import { useVoice } from "./lib/useVoice";
 
 type Message = {
   id: string;
@@ -59,6 +66,8 @@ export function TrainingApp() {
   const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetrics | null>(null);
   const [sessionStatus, setSessionStatus] = useState<"idle" | "active" | "ending">("idle");
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<PersonaId>("elena");
+  const { isListening, isTtsEnabled, startListening, stopListening, speak, toggleTts, supported: voiceSupported } = useVoice();
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const lastClientMsgTime = useRef<number | null>(null);
@@ -131,6 +140,12 @@ export function TrainingApp() {
               text: data.text,
               timestamp: new Date()
             }]);
+            
+            // Speak the incoming message
+            if (data.text) {
+              speak(data.text);
+            }
+
             if (data.time_remaining_seconds !== undefined) {
               setTimeRemaining(data.time_remaining_seconds);
             }
@@ -233,7 +248,8 @@ export function TrainingApp() {
     const msg = {
       type: "session_start",
       direction: "cs",
-      source: "app"
+      source: "app",
+      persona_id: selectedPersonaId
     };
     socket.send(JSON.stringify(msg));
   }
@@ -279,7 +295,22 @@ export function TrainingApp() {
     socket.send(JSON.stringify(msg));
     setTranscript("");
     setIsTyping(true);
+    
+    // Stop listening after sending if it was listening
+    if (isListening) {
+      stopListening();
+    }
   }
+
+  const toggleMic = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening((text, isFinal) => {
+        setTranscript(text);
+      });
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -292,21 +323,24 @@ export function TrainingApp() {
   };
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-gradient-to-br from-slate-950 via-[#0a0f1a] to-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-gradient-to-br from-[#06091A] via-[#0a0f1e] to-[#060714] text-slate-200 font-sans selection:bg-violet-500/30">
 
+      {/* Premium Background Glows */}
+      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-600/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col relative w-full max-w-[100vw]">
+      <main className="flex-1 flex flex-col relative w-full max-w-[100vw] z-10">
 
         {/* TOP BAR */}
-        <header className="h-16 md:h-20 border-b border-white/5 flex items-center justify-between px-3 md:px-8 bg-black/20 backdrop-blur-xl z-20 shrink-0">
+        <header className="h-16 md:h-20 border-b border-white/5 flex items-center justify-between px-3 md:px-8 bg-[#06091A]/60 backdrop-blur-2xl z-20 shrink-0">
           <div className="flex items-center gap-2 md:gap-6 min-w-0">
             <div className="flex flex-col min-w-0">
-              <h2 className="text-sm md:text-base font-bold text-white truncate">Advanced Sales Simulation</h2>
+              <h2 className="text-sm md:text-base font-black text-white truncate tracking-tight uppercase">Reflex Training OS</h2>
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-red-500 animate-pulse"}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  {connected ? "Production Environment" : reconnecting ? "Reconnecting..." : "System Offline"}
+                <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-red-500 animate-pulse"}`} />
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  {connected ? "Neural Link Established" : reconnecting ? "Signal Search..." : "Link Severed"}
                 </span>
               </div>
             </div>
@@ -319,14 +353,14 @@ export function TrainingApp() {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="flex items-center gap-3 bg-black/30 backdrop-blur-md border border-white/10 rounded-full pl-4 pr-1.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                  className="flex items-center gap-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl pl-4 pr-1.5 py-1.5 shadow-2xl"
                 >
                   <span className={`text-xs font-mono font-black ${timeRemaining < 30 ? 'text-red-400 animate-pulse' : 'text-slate-200'}`}>
                     {formatTime(timeRemaining)}
                   </span>
                   <button
                     onClick={endTrainingSession}
-                    className="p-2 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-colors"
+                    className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-colors"
                     title="End Session"
                   >
                     <Square className="w-3 h-3 fill-current" />
@@ -335,14 +369,14 @@ export function TrainingApp() {
               )}
             </AnimatePresence>
 
-            {reconnecting && (
-              <div className="animate-spin text-slate-500 p-2">
-                <RefreshCw className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl border border-white/10 p-0.5 bg-white/5 backdrop-blur-sm hidden md:block group relative">
+              <div className="w-full h-full rounded-xl bg-black/50 flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors" onClick={toggleTts}>
+                {isTtsEnabled ? <Volume2 className="w-5 h-5 text-violet-400" /> : <VolumeX className="w-5 h-5 text-slate-500" />}
               </div>
-            )}
+            </div>
 
-            <div className="w-10 h-10 rounded-full border border-white/10 p-0.5 bg-white/5 backdrop-blur-sm hidden md:block">
-              <div className="w-full h-full rounded-full bg-black/50 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl border border-white/10 p-0.5 bg-white/5 backdrop-blur-sm hidden md:block">
+              <div className="w-full h-full rounded-xl bg-black/50 flex items-center justify-center">
                 <User className="w-5 h-5 text-slate-300" />
               </div>
             </div>
@@ -350,8 +384,8 @@ export function TrainingApp() {
         </header>
 
         {/* CHAT CONTAINER */}
-        <div className="flex-1 overflow-y-auto px-2 py-4 md:px-4 md:py-8 relative scroll-smooth bg-transparent h-full">
-          <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 w-full">
+        <div className="flex-1 overflow-y-auto px-2 py-4 md:px-4 md:py-8 relative scroll-smooth bg-transparent h-full custom-scrollbar">
+          <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 w-full pb-32 md:pb-40">
 
             <AnimatePresence mode="popLayout">
               {!sessionId && !rating && messages.length === 0 && (
@@ -361,38 +395,39 @@ export function TrainingApp() {
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="flex flex-col items-center justify-center min-h-[50vh] md:min-h-[60vh] text-center px-4"
                 >
-                  <div className="relative mb-8">
-                    <div className="w-24 h-24 rounded-3xl bg-emerald-500/10 backdrop-blur-md flex items-center justify-center border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.15)] overflow-hidden">
-                      <Bot className="w-12 h-12 text-emerald-400" />
+                  <div className="relative mb-10">
+                    <div className="w-24 h-24 rounded-[2rem] bg-violet-600/10 backdrop-blur-md flex items-center justify-center border border-violet-500/20 shadow-[0_0_30px_rgba(124,58,237,0.15)] overflow-hidden">
+                      <Bot className="w-12 h-12 text-violet-400" />
                     </div>
-                    {connected && (
-                      <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-slate-900 border border-emerald-500/30 flex items-center justify-center">
-                        <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                      </div>
-                    )}
                   </div>
 
-                  <h3 className="text-2xl md:text-3xl font-black text-white mb-2 md:mb-3 tracking-tight drop-shadow-md">Ready for Excellence?</h3>
-                  <p className="max-w-md text-slate-400 text-base md:text-lg leading-relaxed mb-8 md:mb-10 font-medium">
-                    Step into the simulation. Practice your pitch, overcome objections, and refine your closing techniques.
+                  <h3 className="text-2xl md:text-4xl font-black text-white mb-4 tracking-tighter uppercase italic">Neural Sync Initialization</h3>
+                  <p className="max-w-md text-slate-400 text-base md:text-lg leading-relaxed mb-10 font-medium tracking-tight">
+                    Practice elite sales maneuvers with advanced AI personas in a controlled high-fidelity simulation.
                   </p>
+
+                  <PersonaSelector 
+                    selectedId={selectedPersonaId} 
+                    onSelect={setSelectedPersonaId} 
+                    disabled={!connected}
+                  />
 
                   <button
                     onClick={startTrainingSession}
                     disabled={!connected}
-                    className="group relative px-6 md:px-10 py-3 md:py-4 bg-emerald-500 rounded-2xl text-black font-black text-base md:text-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 shadow-[0_10px_30px_rgba(16,185,129,0.25)] border border-emerald-400 flex items-center gap-2 md:gap-3 overflow-hidden w-full max-w-[280px] md:w-auto justify-center"
+                    className="group relative px-10 py-5 bg-violet-600 rounded-[2rem] text-white font-black text-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-30 shadow-2xl shadow-violet-600/20 border border-violet-400/30 flex items-center gap-3 w-full max-w-[320px] justify-center overflow-hidden"
                   >
-                    <span className="relative z-10 flex items-center gap-3 drop-shadow-sm">
-                      Start Session <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    <span className="relative z-10 flex items-center gap-3">
+                      ENGAGE SIMULATION <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-violet-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 </motion.div>
               )}
 
               {/* MESSAGE LOG */}
               {messages.length > 0 && (
-                <motion.div className="space-y-6 md:space-y-8 pb-32 md:pb-40 w-full">
+                <motion.div className="space-y-8 w-full">
                   {messages.map((m, idx) => (
                     <motion.div
                       key={m.id}
@@ -402,43 +437,41 @@ export function TrainingApp() {
                       className={`flex w-full ${m.sender === 'client' ? 'justify-start' : m.sender === 'salesperson' ? 'justify-end' : 'justify-center'}`}
                     >
                       {m.sender === 'system' ? (
-                        <div className="flex items-center gap-2 md:gap-3 bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 md:px-6 md:py-2 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-center max-w-full truncate">
-                          <Terminal className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{m.text}</span>
+                        <div className="flex items-center gap-3 bg-white/[0.03] backdrop-blur-md border border-white/5 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] text-violet-400/80 shadow-2xl">
+                          <Terminal className="w-3.5 h-3.5 shrink-0" />
+                          <span>{m.text}</span>
                         </div>
                       ) : (
-                        <div className={`flex max-w-[95%] md:max-w-[85%] lg:max-w-[75%] gap-2 md:gap-4 ${m.sender === 'salesperson' ? 'flex-row-reverse' : 'flex-row'}`}>
-                          <div className={`mt-auto w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 shadow-lg border ${m.sender === 'client'
-                            ? 'bg-gradient-to-br from-cyan-600 to-blue-800 border-cyan-400/30 text-white'
-                            : 'bg-emerald-500 border-emerald-400/50 text-black'
+                        <div className={`flex max-w-[95%] md:max-w-[80%] gap-4 ${m.sender === 'salesperson' ? 'flex-row-reverse' : 'flex-row'}`}>
+                          <div className={`mt-auto w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-2xl border transition-all duration-500 ${m.sender === 'client'
+                            ? 'bg-violet-600/20 border-violet-500/20 text-violet-400 shadow-[0_0_20px_rgba(124,58,237,0.1)]'
+                            : 'bg-white/5 border-white/10 text-slate-300'
                             }`}>
                             {m.sender === 'client' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
                           </div>
 
                           <div className={`flex flex-col gap-2 ${m.sender === 'salesperson' ? 'items-end' : 'items-start'}`}>
-                            <div className={`relative px-5 py-3 md:px-6 md:py-4 rounded-3xl shadow-xl backdrop-blur-md ${m.sender === 'client'
-                              ? 'bg-slate-900/80 text-slate-100 rounded-bl-sm border border-white/10'
-                              : 'bg-emerald-600/90 text-white rounded-br-sm border border-emerald-500/50 shadow-[0_10px_30px_rgba(16,185,129,0.15)]'
+                            <div className={`relative px-6 py-4 rounded-[2rem] shadow-2xl backdrop-blur-3xl border transition-all duration-300 ${m.sender === 'client'
+                              ? 'bg-white/[0.03] text-slate-100 rounded-bl-none border-white/5'
+                              : 'bg-violet-600/10 text-white rounded-br-none border-violet-500/20 shadow-[0_0_30px_rgba(124,58,237,0.05)]'
                               }`}>
-                              <p className="text-[14px] md:text-[15px] leading-relaxed font-medium">{m.text}</p>
+                              <p className="text-[15px] leading-relaxed font-medium">{m.text}</p>
                             </div>
 
-                            <div className={`flex items-center gap-2 ${m.sender === 'salesperson' ? 'flex-row-reverse' : 'flex-row'}`}>
-                              <span className="text-[10px] font-medium text-slate-500/70">
+                            <div className={`flex items-center gap-3 ${m.sender === 'salesperson' ? 'flex-row-reverse' : 'flex-row'}`}>
+                              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
                                 {getRelativeTime(m.timestamp)}
                               </span>
 
-                              {/* FEEDBACK PILLS */}
                               {m.sender === 'salesperson' && m.score !== undefined && (
                                 <motion.div
                                   initial={{ opacity: 0, scale: 0.8 }}
                                   animate={{ opacity: 1, scale: 1 }}
-                                  className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-sm border border-white/5 pl-2 pr-3 py-1 rounded-full"
+                                  className="flex items-center gap-2 bg-white/5 border border-white/5 px-3 py-1 rounded-lg"
                                 >
-                                  <div className={`w-2 h-2 rounded-full ${m.sentiment === 'Positive' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : m.sentiment === 'Negative' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]'
-                                    }`} />
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">
-                                    {m.score}%
+                                  <div className={`w-1.5 h-1.5 rounded-full ${m.score >= 80 ? 'bg-violet-400 shadow-[0_0_8px_rgba(124,58,237,0.6)]' : m.score >= 60 ? 'bg-amber-400' : 'bg-red-500'}`} />
+                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                                    {m.score}% ACCURACY
                                   </span>
                                 </motion.div>
                               )}
@@ -456,14 +489,14 @@ export function TrainingApp() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       className="flex w-full justify-start"
                     >
-                      <div className="flex max-w-[95%] md:max-w-[85%] gap-2 md:gap-4 flex-row">
-                        <div className="mt-auto w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 shadow-lg border bg-gradient-to-br from-cyan-600 to-blue-800 border-cyan-400/30 text-white">
+                      <div className="flex max-w-[95%] md:max-w-[85%] gap-4 flex-row">
+                        <div className="mt-auto w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border bg-violet-600/20 border-violet-500/20 text-violet-400">
                           <Bot className="w-5 h-5" />
                         </div>
-                        <div className="relative px-5 py-4 md:px-6 rounded-3xl shadow-xl backdrop-blur-md bg-slate-900/80 rounded-bl-sm border border-white/10 flex items-center gap-1.5 h-[52px]">
-                          <div className="w-2 h-2 rounded-full bg-cyan-400/60 animate-typing" style={{ animationDelay: '0ms' }} />
-                          <div className="w-2 h-2 rounded-full bg-cyan-400/60 animate-typing" style={{ animationDelay: '200ms' }} />
-                          <div className="w-2 h-2 rounded-full bg-cyan-400/60 animate-typing" style={{ animationDelay: '400ms' }} />
+                        <div className="px-6 py-5 rounded-[2rem] shadow-xl backdrop-blur-3xl bg-white/[0.03] rounded-bl-none border border-white/5 flex items-center gap-1.5 h-[56px]">
+                          <div className="w-2 h-2 rounded-full bg-violet-400/40 animate-typing" style={{ animationDelay: '0ms' }} />
+                          <div className="w-2 h-2 rounded-full bg-violet-400/40 animate-typing" style={{ animationDelay: '200ms' }} />
+                          <div className="w-2 h-2 rounded-full bg-violet-400/40 animate-typing" style={{ animationDelay: '400ms' }} />
                         </div>
                       </div>
                     </motion.div>
@@ -474,39 +507,30 @@ export function TrainingApp() {
               )}
             </AnimatePresence>
 
-            {/* SUMMARY OVERLAY & SKELETON */}
+            {/* SUMMARY OVERLAY */}
             <AnimatePresence>
               {sessionStatus === "ending" && !rating && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xl px-4 md:px-6"
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-[#06091A]/90 backdrop-blur-2xl px-6"
                 >
                   <div className="flex flex-col items-center gap-8 w-full max-w-lg">
                     <div className="relative w-24 h-24">
-                      <div className="absolute inset-0 border-4 border-slate-800 rounded-full" />
+                      <div className="absolute inset-0 border-4 border-white/5 rounded-[2rem]" />
                       <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                        className="absolute inset-0 border-4 border-violet-500 border-t-transparent rounded-[2rem] shadow-[0_0_20px_rgba(124,58,237,0.3)]"
                       />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Terminal className="w-8 h-8 text-emerald-400" />
+                        <Activity className="w-8 h-8 text-violet-400" />
                       </div>
                     </div>
                     <div className="text-center">
-                      <h3 className="text-2xl font-black text-white mb-2">Analyzing Performance</h3>
-                      <p className="text-slate-400 font-medium">Synthesizing AI metrics and qualitative feedback...</p>
-                    </div>
-
-                    {/* SKELETON LOADER FOR METRICS */}
-                    <div className="w-full space-y-4 mt-4 animate-pulse">
-                      <div className="h-28 bg-white/5 rounded-2xl border border-white/5 w-full"></div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="h-32 bg-white/5 rounded-2xl border border-white/5"></div>
-                        <div className="h-32 bg-white/5 rounded-2xl border border-white/5"></div>
-                      </div>
+                      <h3 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter italic">Data Synchronization</h3>
+                      <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Aggregating behavioral metrics and neural feedback...</p>
                     </div>
                   </div>
                 </motion.div>
@@ -516,147 +540,101 @@ export function TrainingApp() {
             {/* FINAL METRICS REPORT */}
             {rating && (
               <motion.div
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 space-y-6 md:space-y-8 pb-10"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mt-4 space-y-10 pb-20"
               >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                  {/* METRIC CARDS */}
-                  <div className="bg-gradient-to-br from-emerald-500/15 to-slate-900/80 backdrop-blur-md p-6 rounded-[2rem] border border-emerald-500/30 relative overflow-hidden group shadow-[0_10px_30px_rgba(16,185,129,0.1)]">
-                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition-transform">
-                      <Award className="w-24 h-24 text-emerald-500" />
-                    </div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400 mb-4 drop-shadow-sm">Mastery Score</div>
-                    <div className="text-5xl font-black text-white">{rating.overall_score}<span className="text-xl text-emerald-500/50">/10</span></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white/[0.03] backdrop-blur-3xl p-8 rounded-[2.5rem] border border-violet-500/20 relative overflow-hidden group shadow-2xl">
+                    <div className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-400 mb-6 font-mono">Behavioral Match</div>
+                    <div className="text-6xl font-black text-white tracking-tighter">{rating.overall_score}<span className="text-xl text-violet-500/30">/10</span></div>
                   </div>
 
                   {summaryMetrics && (
                     <>
-                      <div className="bg-gradient-to-br from-cyan-500/15 to-slate-900/80 backdrop-blur-md p-6 rounded-[2rem] border border-cyan-500/30 relative overflow-hidden group shadow-[0_10px_30px_rgba(6,182,212,0.1)]">
-                        <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition-transform">
-                          <AnalyzeIcon className="w-24 h-24 text-cyan-500" />
-                        </div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 drop-shadow-sm">Precision</div>
-                        <div className="text-5xl font-black text-white">{summaryMetrics.accuracy_percentage}<span className="text-xl text-cyan-500/50">%</span></div>
+                      <div className="bg-white/[0.03] backdrop-blur-3xl p-8 rounded-[2.5rem] border border-cyan-500/20 relative overflow-hidden group shadow-2xl">
+                        <div className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400 mb-6 font-mono">Precision Log</div>
+                        <div className="text-6xl font-black text-white tracking-tighter">{summaryMetrics.accuracy_percentage}<span className="text-xl text-cyan-500/30">%</span></div>
                       </div>
-                      <div className="bg-gradient-to-br from-purple-500/15 to-slate-900/80 backdrop-blur-md p-6 rounded-[2rem] border border-purple-500/30 relative overflow-hidden group shadow-[0_10px_30px_rgba(168,85,247,0.1)]">
-                        <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition-transform">
-                          <Target className="w-24 h-24 text-purple-500" />
-                        </div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400 mb-4 drop-shadow-sm">Avg. Quality</div>
-                        <div className="text-5xl font-black text-white">{summaryMetrics.avg_score}<span className="text-xl text-purple-500/50">%</span></div>
+                      <div className="bg-white/[0.03] backdrop-blur-3xl p-8 rounded-[2.5rem] border border-amber-500/20 relative overflow-hidden group shadow-2xl">
+                        <div className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400 mb-6 font-mono">Signal Quality</div>
+                        <div className="text-6xl font-black text-white tracking-tighter">{summaryMetrics.avg_score}<span className="text-xl text-amber-500/30">%</span></div>
                       </div>
                     </>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                  {/* STRENGTHS */}
-                  <div className="bg-slate-900/60 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-xl">
-                    <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 mb-6 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                        <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                      </div>
-                      Tactical Strengths
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-white/[0.02] backdrop-blur-3xl p-10 rounded-[3rem] border border-white/5 shadow-2xl">
+                    <h4 className="text-xs font-black uppercase tracking-[0.3em] text-emerald-400 mb-8 flex items-center gap-3">
+                       Elite Performance
                     </h4>
-                    <div className="space-y-4">
-                      {rating.strengths.length > 0 ? rating.strengths.map((s, i) => (
-                        <div key={i} className="flex gap-4 group">
-                          <div className="w-1.5 h-12 bg-white/5 rounded-full overflow-hidden shrink-0 mt-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
+                    <div className="space-y-5">
+                      {rating.strengths.map((s, i) => (
+                        <div key={i} className="flex gap-5 group">
+                          <div className="w-1.5 h-12 bg-white/5 rounded-full overflow-hidden shrink-0 mt-1">
                             <div className="w-full h-1/2 bg-emerald-500 group-hover:h-full transition-all duration-500" />
                           </div>
                           <p className="text-slate-300 font-medium leading-relaxed">{s}</p>
                         </div>
-                      )) : <p className="text-slate-500 italic">No specific strengths identified.</p>}
+                      ))}
                     </div>
                   </div>
 
-                  {/* IMPROVEMENTS */}
-                  <div className="bg-slate-900/60 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-xl">
-                    <h4 className="text-sm font-black uppercase tracking-widest text-amber-400 mb-6 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-                        <AlertCircle className="w-5 h-5 text-amber-400" />
-                      </div>
-                      Strategic Gaps
+                  <div className="bg-white/[0.02] backdrop-blur-3xl p-10 rounded-[3rem] border border-white/5 shadow-2xl">
+                    <h4 className="text-xs font-black uppercase tracking-[0.3em] text-amber-400 mb-8 flex items-center gap-3">
+                       Strategic Friction
                     </h4>
-                    <div className="space-y-4">
-                      {rating.improvements.length > 0 ? rating.improvements.map((s, i) => (
-                        <div key={i} className="flex gap-4 group">
-                          <div className="w-1.5 h-12 bg-white/5 rounded-full overflow-hidden shrink-0 mt-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
+                    <div className="space-y-5">
+                      {rating.improvements.map((s, i) => (
+                        <div key={i} className="flex gap-5 group">
+                          <div className="w-1.5 h-12 bg-white/5 rounded-full overflow-hidden shrink-0 mt-1">
                             <div className="w-full h-1/4 bg-amber-500 group-hover:h-full transition-all duration-500" />
                           </div>
                           <p className="text-slate-300 font-medium leading-relaxed">{s}</p>
                         </div>
-                      )) : <p className="text-slate-500 italic">No specific improvements identified.</p>}
+                      ))}
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-slate-900/80 backdrop-blur-2xl p-8 md:p-10 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
-                  <h4 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6 relative z-10">Expert Debrief</h4>
-
-                  {rating.detailed_feedback.error ? (
-                    <div className="text-red-400 font-medium bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                      Error generating feedback: {rating.detailed_feedback.error}
-                    </div>
-                  ) : (
-                    <div className="space-y-6 relative z-10">
-                      {/* Section 1: Customer Engagement */}
-                      <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
-                        <h5 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <User className="w-4 h-4" /> Customer Engagement
-                        </h5>
-                        <p className="text-slate-300 font-medium leading-relaxed">
-                          {rating.detailed_feedback.customer_engagement || "No feedback provided."}
-                        </p>
-                      </div>
-
-                      {/* Section 2: Needs Assessment & Pitch */}
-                      <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
-                        <h5 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <Target className="w-4 h-4" /> Needs Assessment & Pitch
-                        </h5>
-                        <p className="text-slate-300 font-medium leading-relaxed">
-                          {rating.detailed_feedback.needs_assessment_and_pitch || "No feedback provided."}
-                        </p>
-                      </div>
-
-                      {/* Section 3: Objection Handling & Closing */}
-                      <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
-                        <h5 className="text-sm font-bold text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4" /> Objection Handling & Closing
-                        </h5>
-                        <p className="text-slate-300 font-medium leading-relaxed">
-                          {rating.detailed_feedback.objection_handling_and_closing || "No feedback provided."}
-                        </p>
-                      </div>
-
-                      {/* Section 4: Areas for Improvement Coaching */}
-                      {rating.detailed_feedback.areas_for_improvement && rating.detailed_feedback.areas_for_improvement.length > 0 && (
-                        <div className="bg-amber-500/5 rounded-2xl p-5 border border-amber-500/20 mt-4">
-                          <h5 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <Settings className="w-4 h-4" /> Strategic Takeaways
-                          </h5>
-                          <ul className="space-y-2">
-                            {rating.detailed_feedback.areas_for_improvement.map((item, idx) => (
-                              <li key={idx} className="flex gap-3 text-slate-300 font-medium text-sm">
-                                <span className="text-amber-500 shrink-0">•</span> {item}
-                              </li>
-                            ))}
-                          </ul>
+                <div className="bg-gradient-to-br from-violet-600/10 to-transparent backdrop-blur-2xl p-12 rounded-[3.5rem] border border-white/10 shadow-2xl relative overflow-hidden">
+                  <div className="relative z-10 space-y-8">
+                     <h4 className="text-xs font-black uppercase tracking-[0.4em] text-slate-500 mb-10 text-center italic">Advanced Performance Debrief</h4>
+                     
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                        <div className="space-y-8 border-r border-white/5 pr-10">
+                           <div>
+                             <h5 className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-3 flex items-center gap-2">Engagement Control</h5>
+                             <p className="text-sm text-slate-300 leading-relaxed font-medium">{rating.detailed_feedback.customer_engagement}</p>
+                           </div>
+                           <div>
+                             <h5 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-3 flex items-center gap-2">Tactical Close</h5>
+                             <p className="text-sm text-slate-300 leading-relaxed font-medium">{rating.detailed_feedback.objection_handling_and_closing}</p>
+                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+                        <div>
+                           <div className="bg-white/5 p-8 rounded-[2rem] border border-white/5">
+                              <h5 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-6">Neural Takeaways</h5>
+                              <ul className="space-y-4">
+                                {rating.detailed_feedback.areas_for_improvement?.map((item, idx) => (
+                                  <li key={idx} className="flex gap-4 text-slate-300 font-medium text-sm italic opacity-80 decoration-violet-500/50 underline-offset-4 underline">
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                           </div>
+                        </div>
+                     </div>
 
-                  <div className="mt-10 flex justify-start md:justify-center relative z-10">
-                    <button
-                      onClick={startTrainingSession}
-                      className="px-8 md:px-12 py-4 md:py-5 bg-white text-black font-black rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-[0_10px_30px_rgba(255,255,255,0.15)] flex items-center gap-3"
-                    >
-                      Initialize New Simulation <Target className="w-5 h-5" />
-                    </button>
+                    <div className="pt-12 flex justify-center">
+                      <button
+                        onClick={startTrainingSession}
+                        className="px-14 py-6 bg-white text-black font-black rounded-[2rem] transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/10 flex items-center gap-4 text-lg"
+                      >
+                        RESTART SIMULATION <Target className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -666,34 +644,43 @@ export function TrainingApp() {
         </div>
 
         {/* INPUT FOOTER */}
-        <footer className="h-20 md:h-28 flex items-center bg-transparent px-2 md:px-8 pb-4 md:pb-8 pt-2 absolute bottom-0 left-0 right-0 z-30 pointer-events-none w-full">
+        <footer className="h-24 md:h-32 flex items-center bg-transparent px-2 md:px-8 pb-6 md:pb-10 pt-2 absolute bottom-0 left-0 right-0 z-30 pointer-events-none w-full">
           <div className="max-w-4xl w-full mx-auto relative group pointer-events-auto">
-            <form onSubmit={handleSendResponse} className="relative shadow-2xl rounded-[2rem] mx-2 md:mx-0">
-              <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-2xl rounded-[1.5rem] md:rounded-[2rem] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)]" />
+            <form onSubmit={handleSendResponse} className="relative shadow-2xl rounded-[2.5rem] mx-2 md:mx-0">
+              <div className="absolute inset-0 bg-[#06091A]/80 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 shadow-2xl" />
               <input
                 type="text"
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
                 disabled={sessionStatus !== "active"}
-                placeholder={sessionStatus === "active" ? "Engage with the trainee..." : rating ? "Session completed" : "Start simulation to begin engagement"}
-                className="w-full h-12 md:h-16 bg-transparent relative z-10 rounded-[1.5rem] md:rounded-[2rem] px-4 md:px-8 pr-14 md:pr-20 text-sm md:text-lg font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all disabled:opacity-50 cursor-text"
+                placeholder={sessionStatus === "active" ? "Awaiting neural input..." : "simulation idle"}
+                className="w-full h-14 md:h-20 bg-transparent relative z-10 rounded-[2.5rem] px-8 md:px-10 pr-20 md:pr-24 text-base md:text-xl font-medium text-white placeholder:text-slate-700 outline-none focus:ring-4 focus:ring-violet-600/10 transition-all disabled:opacity-30 uppercase tracking-tight"
                 autoComplete="off"
               />
-              <div className="absolute right-1.5 md:right-3 top-1/2 -translate-y-1/2 z-20">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex gap-2">
+                {voiceSupported && sessionStatus === "active" && (
+                  <button
+                    type="button"
+                    onClick={toggleMic}
+                    className={`w-12 h-12 md:w-16 md:h-16 rounded-[1.8rem] flex items-center justify-center transition-all bg-white/5 border border-white/10 ${
+                      isListening ? 'bg-red-500/20 text-red-500 border-red-500/50' : 'text-slate-400'
+                    }`}
+                  >
+                    {isListening ? <MicOff className="w-5 h-5 md:w-6 md:h-6" /> : <Mic className="w-5 h-5 md:w-6 md:h-6" />}
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={sessionStatus !== "active" || !transcript.trim()}
-                  className="w-9 h-9 md:w-12 md:h-12 rounded-[1rem] md:rounded-[1.2rem] bg-emerald-500 flex items-center justify-center text-black font-bold transition-all hover:scale-105 active:scale-95 disabled:opacity-0 disabled:scale-50 shadow-lg shadow-emerald-500/30"
+                  className="w-12 h-12 md:w-16 md:h-16 rounded-[1.8rem] bg-violet-600 flex items-center justify-center text-white font-bold transition-all hover:scale-105 active:scale-95 disabled:scale-0 shadow-lg shadow-violet-600/20"
                 >
-                  <Send className="w-4 h-4 md:w-5 md:h-5 fill-current md:ml-0.5" />
+                  <Send className="w-5 h-5 md:w-6 md:h-6 fill-current" />
                 </button>
               </div>
             </form>
           </div>
         </footer>
-
       </main>
-
     </div>
   );
 }

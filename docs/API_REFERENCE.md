@@ -13,7 +13,7 @@ All real-time communication happens over a single WebSocket endpoint.
 ### Connection Parameters
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `role` | `string` | No | `unity` (default), `trainee`, or `admin`. |
+| `role` | `string` | No | `unity` (default), `trainee`, `observer`, or `admin`. |
 | `user_id` | `string` | No | Identifier for the user. |
 | `token` | `string` | No | JWT for `admin` role authorization. |
 
@@ -29,7 +29,8 @@ Initializes a new training session.
   "direction": "cs",
   "user_id": "string (optional)",
   "source": "unity | app",
-  "scenario": "string (optional)"
+  "scenario": "string (optional)",
+  "persona_id": "elena | robert | sarah | david (optional)"
 }
 ```
 
@@ -76,7 +77,8 @@ Confirms session initialization.
   "type": "session_started",
   "direction": "sc",
   "session_id": "string",
-  "user_id": "string"
+  "user_id": "string",
+  "persona_id": "string"
 }
 ```
 
@@ -128,6 +130,18 @@ Real-time update sent to `admin` role connections.
     "..." : "event-specific data"
   }
 }
+```
+
+#### `connected` (Handshake)
+Sent immediately after the WebSocket is accepted to confirm role and user ID.
+```json
+{
+  "type": "connected",
+  "direction": "sc",
+  "role": "string",
+  "user_id": "string"
+}
+```
 ```
 
 ---

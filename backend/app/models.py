@@ -1,86 +1,82 @@
 from datetime import datetime
+from typing import List, Optional, Dict, Any
 
-from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Integer,
-    ForeignKey,
-    JSON,
-)
-from sqlalchemy.orm import relationship
-
-from .db import Base
+from beanie import Document, Indexed
+from pydantic import Field
 
 
-class User(Base):
-    __tablename__ = "users"
+class User(Document):
+    id: str = Field(default_factory=str, alias="_id")  # Using string ID for compatibility
+    email: Indexed(str, unique=True)
+    password_hash: str
+    role: str = "admin"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    id = Column(String, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False, default="admin")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    sessions = relationship("Session", back_populates="user")
-
-
-class Session(Base):
-    __tablename__ = "sessions"
-
-    id = Column(String, primary_key=True, index=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
-    source = Column(String, nullable=False)  # unity | test
-    scenario = Column(String, nullable=True)
-    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    ended_at = Column(DateTime, nullable=True)
-    duration_seconds = Column(Integer, nullable=True)
-    briefing_completed = Column(Integer, nullable=True)
-
-    user = relationship("User", back_populates="sessions")
-    events = relationship("RoleplayEvent", back_populates="session")
-    summary = relationship(
-        "SessionSummary", back_populates="session", uselist=False
-    )
+    class Settings:
+        name = "users"
 
 
-class RoleplayEvent(Base):
-    __tablename__ = "roleplay_events"
+class Session(Document):
+    id: str = Field(default_factory=str, alias="_id")
+    user_id: Optional[str] = None
+    source: str  # unity | test
+    scenario: Optional[str] = "default_scenario"
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    ended_at: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
+    briefing_completed: Optional[int] = None
+    persona_id: str = "elena"
 
-    id = Column(String, primary_key=True, index=True)
-    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
-    step_id = Column(Integer, nullable=True) # Now just an auto-incrementing counter, not strict steps
-    question_id = Column(String, nullable=True)
-    speaker = Column(String, nullable=False)  # client | salesperson
-    transcript = Column(String, nullable=True)
-    intent_category = Column(String, nullable=True)
-    score = Column(Integer, nullable=True)
-    reaction_time_ms = Column(Integer, nullable=True)
-    features_json = Column(JSON, nullable=True)
-
-    session = relationship("Session", back_populates="events")
+    class Settings:
+        name = "sessions"
 
 
-class SessionSummary(Base):
-    __tablename__ = "session_summaries"
+class RoleplayEvent(Document):
+    id: str = Field(default_factory=str, alias="_id")
+    session_id: Indexed(str)
+    step_id: Optional[int] = None
+    question_id: Optional[str] = None
+    speaker: str  # client | salesperson
+    transcript: Optional[str] = None
+    intent_category: Optional[str] = None
+    score: Optional[int] = None
+    reaction_time_ms: Optional[int] = None
+    features_json: Optional[Dict[str, Any]] = None
 
-    session_id = Column(String, ForeignKey("sessions.id"), primary_key=True)
-    total_score = Column(Integer, nullable=True)
-    avg_score = Column(Integer, nullable=True)
-    accuracy_percentage = Column(Integer, nullable=True)
-    ai_rating_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    session = relationship("Session", back_populates="summary")
+    class Settings:
+        name = "roleplay_events"
 
 
-class LogEntry(Base):
-    __tablename__ = "logs"
+class SessionSummary(Document):
+    id: str = Field(default_factory=str, alias="_id")  # This is the session_id
+    total_score: Optional[int] = None
+    avg_score: Optional[int] = None
+    accuracy_percentage: Optional[int] = None
+    ai_rating_json: Optional[Dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    id = Column(String, primary_key=True, index=True)
-    session_id = Column(String, ForeignKey("sessions.id"), nullable=True)
-    level = Column(String, nullable=False)
-    message = Column(String, nullable=False)
-    payload_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    class Settings:
+        name = "session_summaries"
 
+
+class LogEntry(Document):
+    id: str = Field(default_factory=str, alias="_id")
+    session_id: Optional[str] = None
+    level: str
+    message: str
+    payload_json: Optional[Dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "logs"
+
+
+class SystemQuestion(Document):
+    id: str = Field(default_factory=str, alias="_id")
+    text: str
+    tags: Optional[str] = None  # comma-separated
+    is_active: int = 1
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "system_questions"

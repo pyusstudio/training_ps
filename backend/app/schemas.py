@@ -19,6 +19,7 @@ class SessionStartMessage(BaseMessage):
     user_id: Optional[str] = None
     source: Literal["unity", "app"] = "unity"
     scenario: Optional[str] = None
+    persona_id: str = "elena"
 
 
 class RoleplayEventMessage(BaseMessage):
@@ -64,6 +65,7 @@ class ScoreEventMessage(BaseMessage):
 class SessionStartedMessage(BaseMessage):
     type: Literal["session_started"]
     user_id: Optional[str] = None
+    persona_id: str = "elena"
 
 
 class ClientUtteranceMessage(BaseMessage):
@@ -85,6 +87,12 @@ class SessionSummaryMessage(BaseMessage):
     total_score: Optional[int] = None
     avg_score: Optional[int] = None
     accuracy_percentage: Optional[int] = None
+
+
+class ConnectedMessage(BaseMessage):
+    type: Literal["connected"]
+    role: str
+    user_id: Optional[str] = None
 
 
 class BroadcastEventMessage(BaseMessage):

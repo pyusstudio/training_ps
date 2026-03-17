@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     debug: bool = True
 
     # Database
-    sqlite_path: str = "data/reflex.db"
+    mongodb_url: str = "mongodb://localhost:27017"
+    mongodb_db_name: str = "reflex_training"
 
     # Security
     jwt_secret_key: str = "CHANGE_ME_IN_PROD"

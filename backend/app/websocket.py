@@ -14,7 +14,9 @@ from .schemas import (
     SessionEndMessage,
     SessionStartMessage,
     SessionSummaryMessage,
+    SessionSummaryMessage,
     EvaluationQueryMessage,
+    ConnectedMessage,
 )
 from .services import session_service
 from .services.scoring import scoring_service
@@ -73,24 +75,26 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     token = websocket.query_params.get("token")
 
     if token:
-        from .db import get_db  # local import to avoid circular dependency
-
-        user_role: str | None = None
-        with get_db() as db:
-            user = get_user_from_token(db, token)
-            if user is None:
-                await websocket.close(code=1008)
-                return
-            # Extract primitive values while the SQLAlchemy session is still open
-            user_id = str(user.id)
-            user_role = user.role
-
-        if user_role == "admin":
+        user = await get_user_from_token(token)
+        if user is None:
+            await websocket.close(code=1008)
+            return
+        user_id = str(user.id)
+        if user.role == "admin":
             role = "admin"
 
     await websocket.accept()
     conn = Connection(websocket, role=role, user_id=user_id)
     await manager.connect(conn)
+
+    # Handshake: Confirm connection and role to the client
+    handshake = ConnectedMessage(
+        type="connected",
+        direction="sc",
+        role=conn.role,
+        user_id=conn.user_id,
+    )
+    await conn.outbound_queue.put(handshake)
 
     shutdown = asyncio.Event()
     sender_task = asyncio.create_task(_sender(conn, shutdown))
@@ -101,8 +105,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             [sender_task, receiver_task],
             return_when=asyncio.FIRST_COMPLETED,
         )
-        
-        # Log any exceptions that aren't expected disconnects
         for task in done:
             exc = task.exception()
             if exc and not isinstance(exc, WebSocketDisconnect):
@@ -128,7 +130,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 async def _sender(conn: Connection, shutdown: asyncio.Event) -> None:
     while not shutdown.is_set():
         try:
-            # Add a small timeout to allow checking the shutdown event
             msg = await asyncio.wait_for(conn.outbound_queue.get(), timeout=1.0)
             await conn.websocket.send_json(msg.model_dump(mode="json"))
         except asyncio.TimeoutError:
@@ -145,13 +146,8 @@ async def _receiver(conn: Connection, shutdown: asyncio.Event) -> None:
             session_id = data.get("session_id", "N/A")
             logger.debug("Received WebSocket message | type={} | session_id={} | user_id={}", msg_type, session_id, conn.user_id)
         except WebSocketDisconnect:
-            break  # End loop on disconnect
-        except RuntimeError as e:
-            if "client has disconnected" in str(e).lower() or "connection closed" in str(e).lower():
-                break
-            logger.warning("Runtime error in receiver: {}", e)
             break
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.debug("Parse error or disconnect: {}", exc)
             if "connection is closed" in str(exc).lower():
                 break
@@ -186,7 +182,7 @@ async def _receiver(conn: Connection, shutdown: asyncio.Event) -> None:
 async def _handle_session_start(conn: Connection, data: dict) -> None:
     try:
         msg = SessionStartMessage.model_validate(data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("Invalid session_start message: {}", exc)
         error = ErrorMessage(
             type="error",
@@ -201,8 +197,10 @@ async def _handle_session_start(conn: Connection, data: dict) -> None:
         source=msg.source,
         user_id=msg.user_id or conn.user_id,
         scenario=msg.scenario,
+        persona_id=msg.persona_id,
     )
     conn.session_id = started.session_id
+    logger.info("Session started with persona: {}", msg.persona_id)
     await conn.outbound_queue.put(started)
     await conn.outbound_queue.put(first_utterance)
 
@@ -221,7 +219,7 @@ async def _handle_session_start(conn: Connection, data: dict) -> None:
 async def _handle_roleplay_event(conn: Connection, data: dict) -> None:
     try:
         msg = RoleplayEventMessage.model_validate(data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("Invalid roleplay_event message: {}", exc)
         error = ErrorMessage(
             type="error",
@@ -251,7 +249,7 @@ async def _handle_roleplay_event(conn: Connection, data: dict) -> None:
             transcript=msg.transcript or "",
             reaction_time_ms=msg.reaction_time_ms,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("Error handling salesperson response: {}", exc)
         error = ErrorMessage(
             type="error",
@@ -296,8 +294,6 @@ async def _handle_roleplay_event(conn: Connection, data: dict) -> None:
         await manager.broadcast(summary_broadcast, role_filter="admin")
 
     if rating_msg is not None:
-        # This branch is likely never hit now if handle_salesperson_response returns it as None
-        # but kept for compatibility.
         await conn.outbound_queue.put(rating_msg)
         rating_broadcast = BroadcastEventMessage(
             type="broadcast_event",
@@ -313,14 +309,13 @@ async def _handle_roleplay_event(conn: Connection, data: dict) -> None:
         )
         await manager.broadcast(rating_broadcast, role_filter="admin")
     elif summary_msg is not None:
-        # If it was a natural timeout, start the background rating task
         asyncio.create_task(_background_generate_and_send_rating(conn, summary_msg.session_id))
 
 
 async def _handle_session_end(conn: Connection, data: dict) -> None:
     try:
         msg = SessionEndMessage.model_validate(data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("Invalid session_end message: {}", exc)
         error = ErrorMessage(
             type="error",
@@ -343,11 +338,9 @@ async def _handle_session_end(conn: Connection, data: dict) -> None:
 
     logger.info("Manually ending session {}", msg.session_id)
     try:
-        # 1. Finalize session and send summary immediately
-        summary_msg = session_service.finalize_session(msg.session_id)
+        summary_msg = await session_service.finalize_session(msg.session_id)
         await conn.outbound_queue.put(summary_msg)
         
-        # Broadcast summary to admin
         summary_broadcast = BroadcastEventMessage(
             type="broadcast_event",
             direction="sc",
@@ -361,7 +354,6 @@ async def _handle_session_end(conn: Connection, data: dict) -> None:
         )
         await manager.broadcast(summary_broadcast, role_filter="admin")
 
-        # 2. Acknowledge the end
         ack = SessionEndMessage(
             type="session_end",
             direction="sc",
@@ -369,7 +361,6 @@ async def _handle_session_end(conn: Connection, data: dict) -> None:
         )
         await conn.outbound_queue.put(ack)
 
-        # 3. Trigger background rating (which will also clean up the lock when done)
         asyncio.create_task(_background_generate_and_send_rating(conn, msg.session_id))
 
     except Exception as exc:
@@ -384,15 +375,11 @@ async def _handle_session_end(conn: Connection, data: dict) -> None:
 
 
 async def _background_generate_and_send_rating(conn: Connection, session_id: str) -> None:
-    """Helper to generate AI rating in background and broadcast to user and admin."""
     try:
         logger.info("Starting background rating for {}", session_id)
         rating_msg = await session_service.generate_qualitative_rating(session_id)
-        
-        # Send to the current user
         await conn.outbound_queue.put(rating_msg)
         
-        # Broadcast to admins
         rating_broadcast = BroadcastEventMessage(
             type="broadcast_event",
             direction="sc",
@@ -410,17 +397,14 @@ async def _background_generate_and_send_rating(conn: Connection, session_id: str
         
     except Exception as exc:
         logger.exception("Error in background rating generation for {}: {}", session_id, exc)
-        # We don't bother the user with a specific background error here
-        # but the frontend spinner will eventually time out or show nothing.
     finally:
-        # Crucial: Clean up the session context and history ONLY AFTER rating is finished
         asyncio.create_task(session_service.cleanup_session_lock(session_id))
 
 
 async def _handle_evaluation_query(conn: Connection, data: dict) -> None:
     try:
         msg = EvaluationQueryMessage.model_validate(data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("Invalid evaluation_query message: {}", exc)
         error = ErrorMessage(
             type="error",
@@ -431,7 +415,7 @@ async def _handle_evaluation_query(conn: Connection, data: dict) -> None:
         await conn.outbound_queue.put(error)
         return
 
-    result = scoring_service.score(msg.transcript)
+    result = await scoring_service.score("", msg.transcript) # session_id empty for raw query
     score_msg = ScoreEventMessage(
         type="score_event",
         direction="sc",
@@ -445,5 +429,3 @@ async def _handle_evaluation_query(conn: Connection, data: dict) -> None:
         color_hex=result.color_hex,
     )
     await conn.outbound_queue.put(score_msg)
-
-

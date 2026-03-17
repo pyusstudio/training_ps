@@ -14,9 +14,15 @@ The scoring service uses a hybrid approach to classify salesperson responses:
 - **Scoring Algorithm**: Combines cosine similarity (40%) with keyword hits (10%) on top of a 50% base, capped by intent (e.g., Defensive responses are capped at 40%).
 
 ### 2. Session Management (`services/session_service.py`)
+- **Persona System**: Supports 4 distinct AI personalities (Elena, Robert, Sarah, David) with specialized traits, interests, and system prompts.
 - **State Flow**: Manages the linear transition between salesperson input and AI-generated client responses.
 - **Concurrency Control**: Uses `asyncio.Lock` per `session_id` to prevent race conditions during rapid WebSocket events.
-- **AI Feedback**: Integrates with an AI provider (Ollama or OpenAI) to generate dynamic client replies and qualitative session ratings.
+- **AI Feedback**: Integrates with multiple AI providers (Gemini, OpenAI, Ollama) to generate dynamic client replies and qualitative session ratings.
+
+### 3. Voice & Audio Integration
+- **STT/TTS Providers**: Abstraction layer for Deepgram and ElevenLabs.
+- **Deepgram**: Optimized for low-latency real-time transcriptions and high-quality "Aura" text-to-speech.
+- **ElevenLabs**: Premium voice quality for TTS and accurate "Scribe" model for speech recognition.
 
 ### 3. Authentication (`services/auth_service.py`)
 - Provides JWT-based security.

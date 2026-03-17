@@ -2,13 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
-  @apply h-full bg-background text-zinc-100;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+@layer base {
+  html,
+  body {
+    @apply h-full bg-[#06091A] text-slate-100 antialiased selection:bg-violet-500/30 selection:text-white;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  #root {
+    @apply h-full;
+  }
+
+  /* Premium Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/5 rounded-full hover:bg-white/10 transition-colors;
+  }
 }
 
-#root {
-  @apply h-full;
+@layer components {
+  .glass-panel {
+    @apply bg-white/[0.03] backdrop-blur-3xl border border-white/5;
+  }
+  
+  .premium-gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-tr from-violet-400 to-cyan-400;
+  }
 }
-

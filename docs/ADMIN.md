@@ -10,19 +10,19 @@ The Admin Dashboard is a React-based web application designed for instructors an
 - **Session Management**: JWT is stored in an `authStore` (Zustand/Context) to persist the session while the tab is open.
 
 ### 2. Session Listing
-- Displays a tabular view of all recorded sessions.
-- **Key Metrics**: View Session ID, Source (`unity`/`test`), Scenario, Started Time, and the calculated Average Score.
+- Displays a tabular view of all recorded sessions stored in **MongoDB**.
+- **Key Metrics**: View Session ID, Source (`unity`/`test`), Scenario, Selected Persona, Started Time, and the calculated Average Score.
 - **Selection**: Clicking a session loads its detailed transcript and per-step scoring.
 
 ### 3. Live Feed Panel
 - Uses a WebSocket connection with `role=admin`.
 - **Real-time Monitoring**: Automatically receives `broadcast_event` messages from the backend.
-- Displays live updates for new sessions started and scorings as they happen.
+- Displays live updates for new sessions started (including persona ID) and scorings as they happen.
 
 ### 4. Session Detail Review
 - **Transcript View**: Detailed dialogue between the client and the salesperson.
 - **Scoring Breakdown**: Each salesperson response is tagged with its classified intent (e.g., `Isolate`) and numeric score.
-- **AI Qualitative Feedback**: Displays the high-level summary and detailed strengths/improvements provided by the AI provider at the end of a session.
+- **AI Qualitative Feedback**: Displays the high-level summary, persona context, and detailed strengths/improvements provided by the AI provider at the end of a session.
 
 ## Tech Stack
 - **Framework**: Vite + React 18 + TypeScript.
