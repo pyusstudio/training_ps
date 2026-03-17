@@ -1,10 +1,10 @@
-# Reflex Training AI (PoC)
+# Reflex Training Platform
 
-Welcome to the Reflex Training AI system, an AI-powered platform for automotive sales training. This project captures spoken responses, scores them against best practices using semantic AI, and provides real-time feedback via an admin dashboard.
+A real-time AI-powered **sales training platform** for BMW dealership staff. Trainees (salespersons) practice conversations with a realistic AI customer via a Unity VR/mobile client, while supervisors monitor and review sessions through a web admin panel.
 
 ---
 
-## 📖 Documentation Suite
+## Architecture Overview
 
 We have organized detailed documentation for every component of the system. Please refer to the links below:
 
@@ -35,35 +35,65 @@ docker-compose up
 - **Training App (Web)**: `http://localhost:5174`
 - **Voice Integration**: Supports Deepgram and ElevenLabs.
 
-**Default Admin Credentials**:
-- **Email**: `admin@example.com`
-- **Password**: `admin123`
+| Component | Stack | Path |
+|---|---|---|
+| **Backend API** | FastAPI + Python 3.11 | `backend/` |
+| **Admin Panel** | React + Vite + Tailwind | `admin/` |
+| **Training App** | React + Vite + Tailwind | `app/` |
+| **Unity Client** | Unity (C#) | `ReflexUnitySample/` |
+| **Reverse Proxy** | Nginx | `nginx/` |
+
+## Quick Start (Local Development)
+
+### 1. Backend
+```bash
+cd backend
+cp .env.example .env         # Fill in API keys
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+### 2. Admin Panel
+```bash
+cd admin
+npm install
+npm run dev                  # Runs on http://localhost:5173
+```
+
+### 3. Training App
+```bash
+cd app
+npm install
+npm run dev                  # Runs on http://localhost:5174
+```
+
+### 4. Docker (All Services)
+```bash
+docker-compose up --build
+```
 
 ---
 
-## ☁️ Deployment (Render)
+## Documentation
 
-This project is configured for easy deployment on [Render](https://render.com). The repository includes a `render.yaml` Blueprint which defines all three services (Backend, Admin Dashboard, and User App).
-
-1. Connect your GitHub repository to Render.
-2. Go to the Render dashboard and create a new **Blueprint Instance**.
-3. Select your repository, and Render will automatically detect the `render.yaml` file.
-4. Render will deploy all services and assign them `.onrender.com` subdomains.
-
-**Note**: The Dockerfiles are configured to bind dynamically to the `$PORT` environment variable provided by Render. Check the `render.yaml` file to ensure the backend domain matches what Render assigns you, and update the environment variable overrides in the Render Dashboard if needed.
-
----
-
-## 💻 Local Development
-
-If you prefer to run services individually for active development:
-
-1.  **Backend**: `cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
-2.  **Admin**: `cd admin && npm install && npm run dev`
-3.  **Test**: `cd test && npm install && npm run dev`
+| Doc | Description |
+|---|---|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, component interactions |
+| [BACKEND.md](docs/BACKEND.md) | Backend API, services, WebSocket protocol |
+| [SERVER_SETUP.md](docs/SERVER_SETUP.md) | DigitalOcean Ubuntu production deployment |
+| [API_REFERENCE.md](docs/API_REFERENCE.md) | REST & WebSocket API reference |
+| [ADMIN.md](docs/ADMIN.md) | Admin panel usage guide |
+| [TRAINING_APP.md](docs/TRAINING_APP.md) | Training app & persona guide |
+| [UNITY_SETUP.md](docs/UNITY_SETUP.md) | Unity client setup & integration |
+| [evaluation_criteria.md](docs/evaluation_criteria.md) | AI scoring & evaluation criteria |
 
 ---
 
-## 📝 Project Context
-This project is a Proof of Concept (PoC) optimized for speed and demo value. It utilizes **FastAPI**, **React**, and **SBERT** to provide a robust starting point for AI-driven training applications.
+## Live Deployment
 
+- **Training App:** `https://training.pyuscraft.space/`
+- **Admin Panel:** `https://training.pyuscraft.space/admin-1996/`
+- **API Base:** `https://training.pyuscraft.space/api/`
+- **WebSocket:** `wss://training.pyuscraft.space/api/ws`

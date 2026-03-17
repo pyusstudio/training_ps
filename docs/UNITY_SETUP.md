@@ -2,64 +2,96 @@
 
 This guide details how to configure and run the Unity client for the Reflex Training system.
 
-## 📦 Prerequisites
+## Prerequisites
 
-1.  **Unity 2022.3 LTS** or higher.
-2.  **Newtonsoft.Json (Json.NET)**: Available via the Unity Package Manager or as a standalone DLL in `Assets/Plugins`.
-3.  **TextMesh Pro**: Essential for the UI components.
-
-## 🛠️ Essential Components
-
-Attach the following scripts to a persistent GameObject (e.g., `[Managers]`) in your initial scene:
-
-1.  `ReflexWebSocketManager.cs`: Handles real-time communication.
-2.  `VoiceManager.cs`: Abstraction layer for STT/TTS providers.
-3.  `DeepgramManager.cs`: (Optional) For Deepgram-based voice services.
-4.  `ElevenLabsManager.cs`: (Optional) For ElevenLabs-based voice services.
-5.  `AudioRecorder.cs`: Captures user microphone input.
+1. **Unity 2022.3 LTS** or higher
+2. **Newtonsoft.Json (Json.NET)** — via Unity Package Manager or `Assets/Plugins`
+3. **TextMesh Pro** — required for UI components
 
 ---
 
-## ⚙️ Configuration
+## Essential Scripts
 
-### 1. ReflexWebSocketManager (Inspector Settings)
-- **Base URL**: `wss://training-ps.onrender.com/ws`
-- **Role**: `trainee` (for students) | `admin` (for monitoring) | `observer`.
-- **Persona ID**: `elena`, `robert`, `sarah`, or `david`.
-- **User ID**: A unique string for the user.
+Attach to a persistent `[Managers]` GameObject in your main scene:
 
-### 2. VoiceManager (Inspector Settings)
-- **Selected Provider**: Choose your active voice provider (Deepgram or ElevenLabs).
-- **Manager References**: Drag your `DeepgramManager` and `ElevenLabsManager` GameObjects into their respective slots.
-
-### 3. VoiceSessionUI (Inspector Settings)
-- **Buttons**: Assign your UI Button references (Start Session, End Session, Start/Send Voice).
-- **Status Text**: Assign a `TMP_Text` field for real-time status updates (e.g., "Connecting...", "AI Talking").
-- **Summary Text**: Assign a `TMP_Text` field to display the final AI evaluation report.
-- **Persona Input**: (Optional) Assign a `TMP_InputField` to allow changing personas in-game.
+| Script | Purpose |
+|---|---|
+| `ReflexWebSocketManager.cs` | WebSocket connection + message handling |
+| `VoiceManager.cs` | STT/TTS provider abstraction |
+| `DeepgramManager.cs` | Deepgram voice services (optional) |
+| `ElevenLabsManager.cs` | ElevenLabs TTS (optional) |
+| `AudioRecorder.cs` | Microphone capture |
 
 ---
 
-## 🔄 WebSocket Handshake & Events
+## Configuration (Unity Inspector)
 
-The Unity client now handles a two-stage connection:
+### ReflexWebSocketManager
+| Field | Value |
+|---|---|
+| **WS URL** | `wss://training.pyuscraft.space/api/ws` |
+| **Role** | `unity` (trainee) |
+| **Persona ID** | `elena` · `robert` · `sarah` · `david` |
+| **User ID** | Unique trainee identifier string |
 
-1.  **Connected**: The server acknowledges the role and user ID immediately on open.
-2.  **Session Started**: Confirms the specific `persona_id` and `session_id` when the roleplay begins.
+### VoiceManager
+- **Selected Provider:** `Deepgram` or `ElevenLabs`
+- **Manager References:** Drag respective manager GameObjects into slots
 
-### Messaging Types Handled:
-- `connected`: Handshake confirmation.
-- `session_started`: Session initialization.
-- `client_utterance`: AI spoken text.
-- `score_event`: Individual response scoring.
-- `session_rating`: Final post-session evaluation.
-- `broadcast_event`: Real-time updates for admin roles.
+### VoiceSessionUI
+| Field | Description |
+|---|---|
+| **Start/End Session Buttons** | UI Button references |
+| **Status Text** | `TMP_Text` for status ("Connecting...", "AI Talking") |
+| **Summary Text** | `TMP_Text` for end-of-session AI feedback |
+| **Persona Input** | `TMP_InputField` (optional, for in-game persona change) |
 
 ---
 
-## 📉 Troubleshooting
+## WebSocket Flow
 
-- **No Voice Audio**: Ensure your `AudioSource` is correctly assigned to the provider managers and its `Output` isn't muted.
-- **WebSocket Timeout**: The client includes a 3-second auto-reconnect loop. Check your internet connection or the server logs if it continues to poll.
-- **Empty Transcripts**: If no speech is detected, the UI resets automatically after 1 second of "Processing...".
-- **JSON Errors**: Ensure the `Newtonsoft.Json` library is correctly imported; it is required for parsing complex STT payloads.
+```
+1. Connect → receive [connected] (role + user_id confirmed)
+2. Send    → [session_start] {persona_id, user_id}
+3. Receive → [session_started] + [roleplay_event] (AI opening line)
+4. Loop:
+     Record mic → send [roleplay_event] {transcript, reaction_time_ms}
+     Receive    → [score_event] + [roleplay_event] (AI reply)
+5. Receive → [session_summary] + [session_rating] (on session end)
+```
+
+**Message types received by Unity:**
+
+| Type | Description |
+|---|---|
+| `connected` | Handshake confirmation |
+| `session_started` | Session ready, session_id assigned |
+| `roleplay_event` | AI customer utterance |
+| `score_event` | Per-reply score + color + feedback |
+| `session_summary` | Final score stats |
+| `session_rating` | AI qualitative feedback report |
+
+---
+
+## Voice Interaction
+
+**Auto-flow (recommended):**
+1. After receiving `roleplay_event` (AI speaking) → play TTS audio
+2. On TTS complete → auto-start microphone recording
+3. On silence detection → stop recording → send transcript
+4. On `session_summary` → stop microphone permanently
+
+**Barge-in (iOS):**
+Use native iOS audio bridge with hardware echo cancellation via Objective-C++ plugin. See `ReflexUnitySample/` for implementation.
+
+---
+
+## Troubleshooting
+
+| Issue | Fix |
+|---|---|
+| No audio playback | Check `AudioSource` assignment on TTS manager; verify not muted |
+| WebSocket keeps reconnecting | Check server URL and confirm backend is running |
+| Empty transcripts | Silence threshold too high — lower VAD sensitivity |
+| JSON parse errors | Ensure `Newtonsoft.Json` is properly imported in `Assets/Plugins` |
+| iOS mic not starting | Check microphone permission in `Info.plist` and Unity Player Settings |

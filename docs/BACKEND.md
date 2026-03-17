@@ -1,70 +1,118 @@
 # Backend Documentation
 
-The backend is a FastAPI application that serves as the core intelligence and data coordinator for the Reflex Training System.
+## Stack
 
-## Core Services
+| Technology | Version | Purpose |
+|---|---|---|
+| Python | 3.11 | Runtime |
+| FastAPI | 0.115.0 | REST API + WebSocket |
+| Uvicorn | 0.30.6 | ASGI server |
+| SQLite + aiosqlite | — | Database |
+| Beanie / Motor | 1.25.0 / 3.6.0 | ODM (async) |
+| Pydantic v2 | 2.9.2 | Data validation |
+| python-jose | 3.3.0 | JWT auth |
 
-### 1. Intent Scoring Service (`services/scoring.py`)
-The scoring service uses a hybrid approach to classify salesperson responses:
-- **Semantic Similarity**: Uses **SBERT** (`all-MiniLM-L6-v2` by default) to compare transcripts against canonical examples of "Good" (Isolate/Empathy) and "Bad" (Defensive) responses.
-- **Rule-Based Keywords**: Scans for specific phrase buckets to ensure robustness.
-  - **Isolate**: "right car", "family", "value", etc.
-  - **Empathy**: "understand how you feel", "felt the same", "they found", etc.
-  - **Defensive**: "fixed price", "policy", "manager", etc.
-- **Scoring Algorithm**: Combines cosine similarity (40%) with keyword hits (10%) on top of a 50% base, capped by intent (e.g., Defensive responses are capped at 40%).
+---
 
-### 2. Session Management (`services/session_service.py`)
-- **Persona System**: Supports 4 distinct AI personalities (Elena, Robert, Sarah, David) with specialized traits, interests, and system prompts.
-- **State Flow**: Manages the linear transition between salesperson input and AI-generated client responses.
-- **Concurrency Control**: Uses `asyncio.Lock` per `session_id` to prevent race conditions during rapid WebSocket events.
-- **AI Feedback**: Integrates with multiple AI providers (Gemini, OpenAI, Ollama) to generate dynamic client replies and qualitative session ratings.
+## Directory Structure
 
-### 3. Voice & Audio Integration
-- **STT/TTS Providers**: Abstraction layer for Deepgram and ElevenLabs.
-- **Deepgram**: Optimized for low-latency real-time transcriptions and high-quality "Aura" text-to-speech.
-- **ElevenLabs**: Premium voice quality for TTS and accurate "Scribe" model for speech recognition.
+```
+backend/
+├── app/
+│   ├── main.py            # App factory, startup, CORS, routers
+│   ├── config.py          # Settings (pydantic-settings, reads .env)
+│   ├── db.py              # Database init
+│   ├── models.py          # DB models (User, Session, SuggestedQuestion)
+│   ├── schemas.py         # WebSocket message schemas
+│   ├── websocket.py       # WebSocket endpoint + session orchestration
+│   ├── api/
+│   │   ├── auth.py        # POST /token (JWT login)
+│   │   ├── admin.py       # Admin CRUD endpoints
+│   │   └── questions.py   # Suggested questions API
+│   ├── services/
+│   │   ├── ai_service.py     # AI providers + system prompt
+│   │   ├── session_service.py # Session lifecycle management
+│   │   ├── scoring.py        # Intent + sentiment scoring
+│   │   └── auth_service.py   # User auth helpers
+│   └── migrations/        # DB migration scripts
+├── .env                   # Environment variables (not committed)
+├── .env.example           # Template
+├── requirements.txt       # Python dependencies
+└── Dockerfile             # Container build
+```
 
-### 3. Authentication (`services/auth_service.py`)
-- Provides JWT-based security.
-- Standard roles: `admin` (access to dashboard endpoints) and `user` (default for unity/test).
-- Default credentials for PoC: `admin@example.com` / `admin123`.
+---
 
-## Database Schema (SQLite)
+## Environment Variables
 
-### `sessions`
-Tracks overall training attempts.
-- `id`: UUID
-- `user_id`: Link to `users`
-- `source`: `unity` | `test`
-- `scenario`: Training scenario name
-- `started_at`, `ended_at`, `duration_seconds`
+| Variable | Default | Description |
+|---|---|---|
+| `DEBUG` | `true` | Enable debug mode |
+| `AI_PROVIDER` | `gemini` | AI backend: `gemini`, `openai`, `huggingface`, `ollama` |
+| `GEMINI_API_KEY` | — | Google Gemini API key |
+| `OPENAI_API_KEY` | — | OpenAI API key |
+| `HUGGINGFACE_API_KEY` | — | HuggingFace token |
+| `HUGGINGFACE_MODEL` | `meta-llama/Llama-3.1-8B-Instruct` | HF model ID |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `OLLAMA_MODEL` | `llama3` | Ollama model name |
+| `SESSION_TIME_LIMIT_SECONDS` | `180` | Session duration (3 min) |
+| `JWT_SECRET_KEY` | `CHANGE_ME_IN_PROD` | JWT signing secret |
+| `JWT_ALGORITHM` | `HS256` | JWT algorithm |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Token expiry |
+| `CORS_ORIGINS` | `[]` | Allowed frontend origins (JSON array) |
+| `SQLITE_PATH` | `data/reflex.db` | SQLite file path |
 
-### `roleplay_events`
-Stores every message in a session.
-- `step_id`: Incremental counter
-- `speaker`: `client` | `salesperson`
-- `transcript`: The spoken/text content
-- `intent_category`: Classified intent (for salesperson)
-- `score`: Numeric score (0-100)
-- `features_json`: Metadata like sentiment and detected keywords
+---
 
-### `session_summaries`
-Aggregated performance data.
-- `total_score`, `avg_score`, `accuracy_percentage`
-- `ai_rating_json`: Detailed qualitative feedback from the AI provider.
+## Key Services
 
-## Configuration (.env)
-Key environment variables:
-- `DATABASE_URL`: Path to SQLite file.
-- `SECRET_KEY`: For JWT signing.
-- `SBERT_MODEL_NAME`: HuggingFace model for embeddings.
-- `AI_PROVIDER`: `ollama` | `openai` | `huggingface` | `gemini`.
-- `HUGGINGFACE_API_KEY`: Token for Hugging Face Inference API.
-- `HUGGINGFACE_MODEL`: Model ID (e.g., `meta-llama/Llama-3.1-8B-Instruct`).
-- `SESSION_TIME_LIMIT_SECONDS`: Max duration for a roleplay session.
+### `ai_service.py` — AI Customer Simulation
+- Defines `PERSONA_CONFIGS` for 4 buyer personas (Elena, Robert, Sarah, David)
+- `get_system_prompt(persona_id)` — generates the AI customer's behavior prompt
+- `AIProvider` abstract class with 4 concrete implementations
+- `evaluate_reply()` — per-reply coaching scores (empathy, detail, tone)
+- `rate_session()` — end-of-session qualitative AI rating
 
-## Development Setup
+### `session_service.py` — Session Lifecycle
+- `start_session()` — creates session, gets AI's opening greeting
+- `handle_salesperson_response()` — scores reply, gets AI next utterance, checks time limit
+- `finalize_session()` — computes summary stats
+- `generate_qualitative_rating()` — triggers AI session rating
 
-1.  **Virtual Env**: `python -m venv .venv`
-2.  **Install Deps**: `pip install -r requirements.txt`
-3.  **Run**: `uvicorn app.main:app --reload`
+### `scoring.py` — Intent & Sentiment Scoring
+- Classifies each salesperson utterance by intent category
+- Returns score (0–10), sentiment, detected keywords, and color hex for UI
+
+### `auth_service.py` — Authentication
+- JWT token generation and validation
+- Default admin account creation on startup
+
+---
+
+## Running Locally
+
+```bash
+cd backend
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API Docs (Swagger): `http://localhost:8000/docs`
+
+---
+
+## Docker
+
+```bash
+# Build image
+docker build -t reflex-backend ./backend
+
+# Run container
+docker run -p 8000:8000 --env-file ./backend/.env reflex-backend
+```

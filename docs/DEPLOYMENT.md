@@ -1,55 +1,130 @@
-# Deployment and CI/CD Guide
+# Deployment Guide
 
-This guide explains how the CI/CD pipeline works and how to manage deployments for the ReflexTraining project.
+## Overview
 
-## 1. GitHub CI/CD Pipeline
+Reflex Training uses **Docker Compose** for containerized deployment behind an **Nginx reverse proxy** with **Let's Encrypt SSL**.
 
-The project uses GitHub Actions for continuous deployment. The workflow is triggered on every push to the `main` branch.
+**Live URLs:**
+- Training App: `https://training.pyuscraft.space/`
+- Admin Panel: `https://training.pyuscraft.space/admin-1996/`
+- API: `https://training.pyuscraft.space/api/`
+- WebSocket: `wss://training.pyuscraft.space/api/ws`
 
-### Workflow Steps:
-1. **Checkout**: Pulls the latest code from GitHub.
-2. **Setup**: Prepares the SSH environment.
-3. **Deploy**:
-   - SSHes into your server using the PEM file.
-   - Navigates to the project directory.
-   - Pulls the latest changes: `git pull origin main`.
-   - Rebuilds and restarts the application: `docker compose up --build -d`.
+> See [SERVER_SETUP.md](SERVER_SETUP.md) for the full DigitalOcean droplet setup walkthrough.
 
-## 2. Required GitHub Secrets
+---
 
-To make the workflow work, you must add the following secrets to your GitHub repository (**Settings > Secrets and variables > Actions**):
+## Service Map
 
-| Secret Name | Description |
-| :--- | :--- |
-| `SSH_PRIVATE_KEY` | The entire content of your `.pem` file. |
-| `SSH_HOST` | Your server's public IP address or domain (`training.pyuscraft.space`). |
-| `SSH_USERNAME` | The SSH username (usually `ubuntu` or `root`). |
-
-## 3. Initial Server Setup for Git
-
-On your server, you need to clone the repository once to the expected path:
-
-```bash
-cd ~/projects
-git clone https://github.com/YOUR_USERNAME/ReflexTraining.git
-cd ReflexTraining
+```
+Internet → Nginx (host, 443/SSL) → Docker Nginx (8080)
+                                       ├── /api/       → backend:8000
+                                       ├── /admin-1996/ → admin:80
+                                       └── /           → reflex-app:80
 ```
 
-> [!NOTE]
-> Ensure the directory path matches the one defined in `.github/workflows/deploy.yml` (default is `~/projects/ReflexTraining`).
+## Docker Services
 
-## 4. Manual Deployment
+| Service | Image | Port | Description |
+|---|---|---|---|
+| `backend` | Custom Python | `8000` (internal) | FastAPI + WebSocket |
+| `admin` | Custom Nginx | `80` (internal) | Admin React app |
+| `reflex-app` | Custom Nginx | `80` (internal) | Training React app |
+| `nginx` | `nginx:stable-alpine` | `8080→80` | Internal routing |
 
-If you need to deploy manually, run these commands on the server:
+---
+
+## Deploy / Update
 
 ```bash
-cd ~/projects/ReflexTraining
+# First time deploy
+cd ~/ReflexTraining
+git clone <repo-url> .
+cp backend/.env.example backend/.env
+# Edit backend/.env with real keys
+docker compose build
+docker compose up -d
+
+# Update application
 git pull origin main
-docker compose up --build -d
+docker compose up -d --build
+
+# Rebuild single service
+docker compose up -d --build backend
 ```
 
-## 5. Troubleshooting
+---
 
-- **Check Docker logs**: `docker compose logs -f`
-- **Restart Nginx**: `sudo systemctl restart nginx`
-- **Check SSH connectivity**: Ensure the server's security group allows SSH (port 22) from GitHub's IP ranges or all (not recommended).
+## Useful Commands
+
+```bash
+# View logs
+docker compose logs -f             # all services
+docker compose logs backend -f     # backend only
+
+# Restart
+docker compose restart backend
+
+# Stop all
+docker compose down
+
+# Check status
+docker compose ps
+```
+
+---
+
+## Build Arguments (Frontend)
+
+Both `admin` and `reflex-app` are built with these args in `docker-compose.yml`:
+
+```yaml
+args:
+  - VITE_BACKEND_URL=https://training.pyuscraft.space/api
+  - VITE_BACKEND_WS_URL=wss://training.pyuscraft.space/api/ws
+```
+
+Change these if your domain changes, then rebuild.
+
+---
+
+## Nginx Routing (`nginx/nginx.conf`)
+
+```nginx
+location /api/       → backend:8000     # REST + WS (upgrade headers set)
+location /admin-1996/ → admin:80        # Admin panel
+location /           → reflex-app:80    # Training app (catch-all)
+```
+
+WebSocket headers are configured on `/api/`:
+```nginx
+proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+```
+
+---
+
+## Data Persistence
+
+SQLite database is stored in the `reflex_data` Docker volume:
+
+```bash
+# Backup
+docker compose exec backend cat /app/data/reflex.db > backup_$(date +%Y%m%d).db
+
+# Restore
+docker cp ./backup.db $(docker compose ps -q backend):/app/data/reflex.db
+docker compose restart backend
+```
+
+---
+
+## Production Checklist
+
+- [ ] `JWT_SECRET_KEY` set to a long random string (`openssl rand -hex 32`)
+- [ ] `DEBUG=false` in backend `.env`
+- [ ] `CORS_ORIGINS` locked to exact frontend URLs
+- [ ] SSL cert obtained via Certbot
+- [ ] Firewall: only ports 22, 80, 443 open publicly
+- [ ] Certbot auto-renewal active: `sudo systemctl status certbot.timer`
