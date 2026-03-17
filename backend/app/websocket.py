@@ -264,11 +264,27 @@ async def _handle_roleplay_event(conn: Connection, data: dict) -> None:
 
     await conn.outbound_queue.put(score_msg)
 
+    # Broadcast the salesperson's transcript turn so admin live feed shows conversation
+    transcript_broadcast = BroadcastEventMessage(
+        type="broadcast_event",
+        direction="sc",
+        payload={
+            "event": "roleplay_event",
+            "session_id": msg.session_id,
+            "speaker": "salesperson",
+            "transcript": msg.transcript or "",
+        },
+    )
+    await manager.broadcast(transcript_broadcast, role_filter="admin")
+
     broadcast_payload = {
         "event": "score_event",
         "session_id": score_msg.session_id,
         "intent_category": score_msg.intent_category,
         "score": score_msg.score,
+        "sentiment": score_msg.sentiment,
+        "feedback": score_msg.feedback,
+        "keywords_detected": score_msg.keywords_detected or [],
     }
     broadcast = BroadcastEventMessage(
         type="broadcast_event",
@@ -276,6 +292,20 @@ async def _handle_roleplay_event(conn: Connection, data: dict) -> None:
         payload=broadcast_payload,
     )
     await manager.broadcast(broadcast, role_filter="admin")
+
+    # Broadcast the AI's reply so admin sees the client side of the conversation
+    if next_client_msg is not None:
+        ai_broadcast = BroadcastEventMessage(
+            type="broadcast_event",
+            direction="sc",
+            payload={
+                "event": "roleplay_event",
+                "session_id": msg.session_id,
+                "speaker": "client",
+                "transcript": next_client_msg.text if hasattr(next_client_msg, "text") else "",
+            },
+        )
+        await manager.broadcast(ai_broadcast, role_filter="admin")
 
     if next_client_msg is not None:
         await conn.outbound_queue.put(next_client_msg)
