@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .db import Base, engine
 from .api.auth import router as auth_router
 from .api.admin import router as admin_router
 from .api.questions import router as questions_router
@@ -26,15 +25,10 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def on_startup() -> None:
-    # Ensure database directory exists
-    db_dir = os.path.dirname(settings.sqlite_path)
-    if db_dir and not os.path.exists(db_dir):
-        os.makedirs(db_dir, exist_ok=True)
-        
-    # Create tables for PoC; in production use Alembic migrations instead.
-    Base.metadata.create_all(bind=engine)
-    ensure_default_admin()
+async def on_startup() -> None:
+    from .db import init_db
+    await init_db()
+    await ensure_default_admin()
 
 
 @app.get("/health", tags=["system"])

@@ -20,5 +20,10 @@ class QuestionRead(QuestionBase):
     id: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+
+class PaginatedQuestions(BaseModel):
+    items: List[QuestionRead]
+    total: int
+    page: int
+    pageSize: int
+    pages: int

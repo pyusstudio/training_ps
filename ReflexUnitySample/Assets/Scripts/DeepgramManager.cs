@@ -107,10 +107,16 @@ public class DeepgramManager : MonoBehaviour, IVoiceProvider
                     string transcript = response.results.channels[0].alternatives[0].transcript;
                     onTranscriptReceived?.Invoke(transcript);
                 }
+                else
+                {
+                    Debug.LogWarning("Deepgram STT: No transcript found in results.");
+                    onTranscriptReceived?.Invoke("");
+                }
             }
             else
             {
                 Debug.LogError($"Deepgram STT Error: {request.error}\n{request.downloadHandler.text}");
+                onTranscriptReceived?.Invoke("");
             }
         }
     }

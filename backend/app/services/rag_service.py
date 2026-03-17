@@ -4,8 +4,6 @@ from typing import List, Optional
 import faiss
 from fastembed import TextEmbedding
 from loguru import logger
-from sqlalchemy.orm import Session
-from ..db import get_db
 from ..models import SystemQuestion
 
 class RagService:
@@ -33,18 +31,17 @@ class RagService:
         await self._ensure_model()
         
         logger.info("Rebuilding FAISS index for questions...")
-        with get_db() as db:
-            questions = db.query(SystemQuestion).filter(SystemQuestion.is_active == 1).all()
-            
-            if not questions:
-                logger.warning("No active questions found to index.")
-                self.index = None
-                self.question_ids = []
-                return
-
-            texts = [q.text for q in questions]
-            q_ids = [q.id for q in questions]
+        questions = await SystemQuestion.find(SystemQuestion.is_active == 1).to_list()
         
+        if not questions:
+            logger.warning("No active questions found to index.")
+            self.index = None
+            self.question_ids = []
+            return
+
+        texts = [q.text for q in questions]
+        q_ids = [q.id for q in questions]
+    
         # Generate embeddings
         embeddings = list(self.model.embed(texts))
         embeddings_np = np.array(embeddings).astype('float32')

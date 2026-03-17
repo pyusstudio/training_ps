@@ -7,10 +7,8 @@ from uuid import uuid4
 from jose import JWTError, jwt
 from loguru import logger
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..db import get_db
 from ..models import User
 
 
@@ -55,16 +53,16 @@ def decode_access_token(token: str) -> Optional[str]:
     return subject
 
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
-    return db.query(User).filter(User.email == email).first()
+async def get_user_by_email(email: str) -> Optional[User]:
+    return await User.find_one(User.email == email)
 
 
-def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
-    return db.query(User).filter(User.id == user_id).first()
+async def get_user_by_id(user_id: str) -> Optional[User]:
+    return await User.get(user_id)
 
 
-def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
-    user = get_user_by_email(db, email)
+async def authenticate_user(email: str, password: str) -> Optional[User]:
+    user = await get_user_by_email(email)
     if user is None:
         return None
     if not verify_password(password, user.password_hash):
@@ -72,14 +70,14 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
     return user
 
 
-def get_user_from_token(db: Session, token: str) -> Optional[User]:
+async def get_user_from_token(token: str) -> Optional[User]:
     user_id = decode_access_token(token)
     if not user_id:
         return None
-    return get_user_by_id(db, user_id)
+    return await get_user_by_id(user_id)
 
 
-def ensure_default_admin() -> None:
+async def ensure_default_admin() -> None:
     """
     Create a default admin user for PoC/demo if none exists.
 
@@ -88,20 +86,18 @@ def ensure_default_admin() -> None:
     default_email = "admin@example.com"
     default_password = "admin123"
 
-    with get_db() as db:
-        existing = get_user_by_email(db, default_email)
-        if existing is not None:
-            return
+    existing = await get_user_by_email(default_email)
+    if existing is not None:
+        return
 
-        user = User(
-            id=str(uuid4()),
-            email=default_email,
-            password_hash=get_password_hash(default_password),
-            role="admin",
-        )
-        db.add(user)
-        logger.info(
-            "Created default admin user email={} (demo only, change in production)",
-            default_email,
-        )
-
+    user = User(
+        id=str(uuid4()),
+        email=default_email,
+        password_hash=get_password_hash(default_password),
+        role="admin",
+    )
+    await user.insert()
+    logger.info(
+        "Created default admin user email={} (demo only, change in production)",
+        default_email,
+    )

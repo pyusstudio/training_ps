@@ -8,7 +8,7 @@ This guide describes how to set up an Ubuntu server to host the ReflexTraining a
 - A domain name (e.g., `training.pyuscraft.space`) pointing to your server's IP.
 - SSH access to your server (using the PEM file).
 
-## 2. Install Docker and Docker Compose
+## 2. Install Docker, Docker Compose, and MongoDB
 
 Update your packages and install Docker:
 
@@ -29,27 +29,29 @@ sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 ```
 
-Verify installation:
+### MongoDB Setup (Docker)
+The application uses MongoDB for persistence. You can run it via Docker:
 ```bash
-docker --version
-docker compose version
+docker run -d --name mongodb -p 27017:27017 -v ~/mongodb_data:/data/db mongo:latest
 ```
 
-## 3. Install Nginx and Certbot
+## 3. Environment Configuration (.env)
 
-Nginx will act as a reverse proxy, and Certbot will manage your SSL certificates.
-
-```bash
-sudo apt-get install -y nginx certbot python3-certbot-nginx
-```
-
-## 4. Install Python (Optional)
-
-While the application runs in Docker, you might need Python on the host for maintenance scripts.
+Create a `.env` file in the backend directory with the following variables:
 
 ```bash
-sudo apt-get install -y python3 python3-pip python3-venv
+MONGODB_URL=mongodb://localhost:27017
+MONGODB_DB_NAME=reflex_training
+JWT_SECRET_KEY=your_secure_secret_key
+AI_PROVIDER=gemini # or openai, huggingface, ollama
+GEMINI_API_KEY=your_key
+OPENAI_API_KEY=your_key
+DEEPGRAM_API_KEY=your_key # For Unity STT/TTS
+ELEVENLABS_API_KEY=your_key # For Unity STT/TTS
 ```
+
+## 4. Install Nginx and Certbot
+... (Existing Nginx/Certbot sections) ...
 
 ## 5. Configure Nginx with SSL
 

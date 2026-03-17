@@ -89,6 +89,12 @@ class SessionSummaryMessage(BaseMessage):
     accuracy_percentage: Optional[int] = None
 
 
+class ConnectedMessage(BaseMessage):
+    type: Literal["connected"]
+    role: str
+    user_id: Optional[str] = None
+
+
 class BroadcastEventMessage(BaseMessage):
     type: Literal["broadcast_event"]
     payload: Dict[str, Any]

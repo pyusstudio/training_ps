@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { User, Shield, Zap, Sparkles } from "lucide-react";
 
-export type PersonaId = "elena" | "ahmad" | "sarah" | "david";
+export type PersonaId = "elena" | "robert" | "sarah" | "david";
 
 interface Persona {
   id: PersonaId;
@@ -23,8 +23,8 @@ const PERSONAS: Persona[] = [
     color: "from-pink-500 to-rose-600",
   },
   {
-    id: "ahmad",
-    name: "Ahmad",
+    id: "robert",
+    name: "Robert",
     gender: "Male",
     trait: "Decisive Executive",
     icon: <Shield className="w-5 h-5" />,
@@ -67,40 +67,40 @@ export function PersonaSelector({ selectedId, onSelect, disabled }: PersonaSelec
             onClick={() => onSelect(persona.id)}
             whileHover={!disabled ? { y: -4, scale: 1.02 } : {}}
             whileTap={!disabled ? { scale: 0.98 } : {}}
-            className={`relative flex flex-col items-center p-4 rounded-2xl border transition-all duration-300 ${
+            className={`relative flex flex-col items-center p-6 rounded-[2rem] border transition-all duration-500 ${
               isSelected
-                ? "bg-white/10 border-white/30 shadow-[0_0_20px_rgba(255,255,255,0.1)] backdrop-blur-md"
-                : "bg-black/20 border-white/5 hover:border-white/10 backdrop-blur-sm"
-            } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                ? "bg-violet-600/10 border-violet-500/40 shadow-[0_0_30px_rgba(124,58,237,0.1)] backdrop-blur-xl"
+                : "bg-white/[0.03] border-white/5 hover:border-white/10 backdrop-blur-md"
+            } ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
           >
             <div
-              className={`w-12 h-12 rounded-xl bg-gradient-to-br ${persona.color} flex items-center justify-center mb-3 shadow-lg relative`}
+              className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${persona.color} flex items-center justify-center mb-4 shadow-2xl relative transition-transform duration-500 ${isSelected ? 'scale-110' : 'group-hover:scale-105'}`}
             >
               {isSelected && (
                 <motion.div
                   layoutId="indicator"
-                  className="absolute -inset-1 rounded-[14px] border-2 border-white/50 blur-[2px]"
+                  className="absolute -inset-1.5 rounded-[1.2rem] border-2 border-violet-400/50 blur-[1px]"
                 />
               )}
-              <div className="text-white drop-shadow-md">
-                {persona.id === "elena" ? <Sparkles className="w-6 h-6" /> : 
-                 persona.id === "ahmad" ? <Shield className="w-6 h-6" /> : 
-                 persona.id === "sarah" ? <Zap className="w-6 h-6" /> : 
-                 <User className="w-6 h-6" />}
+              <div className="text-white drop-shadow-2xl">
+                {persona.id === "elena" ? <Sparkles className="w-7 h-7" /> : 
+                 persona.id === "robert" ? <Shield className="w-7 h-7" /> : 
+                 persona.id === "sarah" ? <Zap className="w-7 h-7" /> : 
+                 <User className="w-7 h-7" />}
               </div>
             </div>
             
-            <span className={`text-[13px] font-black uppercase tracking-widest ${isSelected ? "text-white" : "text-slate-400"}`}>
+            <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${isSelected ? "text-white" : "text-slate-500"}`}>
               {persona.name}
             </span>
-            <span className="text-[10px] text-slate-500 font-bold mt-1 text-center leading-tight">
+            <span className="text-[9px] text-slate-600 font-black uppercase tracking-tighter mt-1 text-center leading-tight opacity-80">
               {persona.trait}
             </span>
             
             {isSelected && (
               <motion.div
                 layoutId="active-glow"
-                className="absolute inset-0 rounded-2xl bg-white/5 pointer-events-none"
+                className="absolute inset-0 rounded-[2rem] bg-violet-600/5 pointer-events-none"
               />
             )}
           </motion.button>

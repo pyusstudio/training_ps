@@ -3,33 +3,39 @@ const API_BASE =
 
 export type SessionRow = {
   id: string;
-  user_id: string | null;
   source: string;
   scenario: string | null;
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
-  total_score: number | null;
   avg_score: number | null;
   accuracy_percentage: number | null;
+};
+
+export type PaginatedSessions = {
+  items: SessionRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pages: number;
 };
 
 export type RoleplayEvent = {
   id: string;
   step_id: number;
-  question_id: string | null;
   speaker: string;
   transcript: string | null;
   intent_category: string | null;
   score: number | null;
   reaction_time_ms: number | null;
-  features_json: Record<string, unknown> | null;
+  features_json: Record<string, any> | null;
 };
 
 export type SessionDetail = {
   id: string;
   source: string;
   scenario: string | null;
+  persona_id: string;
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
@@ -38,6 +44,22 @@ export type SessionDetail = {
   accuracy_percentage: number | null;
   ai_rating_json: any | null;
   events: RoleplayEvent[];
+};
+
+export type SystemQuestion = {
+  id: string;
+  text: string;
+  tags: string | null;
+  is_active: number;
+  created_at: string;
+};
+
+export type PaginatedQuestions = {
+  items: SystemQuestion[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pages: number;
 };
 
 export async function login(
@@ -60,8 +82,12 @@ export async function login(
   return data.access_token;
 }
 
-export async function fetchSessions(token: string): Promise<SessionRow[]> {
-  const res = await fetch(`${API_BASE}/api/admin/sessions`, {
+export async function fetchSessions(
+  token: string, 
+  page: number = 1, 
+  pageSize: number = 20
+): Promise<PaginatedSessions> {
+  const res = await fetch(`${API_BASE}/api/admin/sessions?page=${page}&page_size=${pageSize}`, {
     headers: {
       Authorization: `Bearer ${token}`
     }
@@ -69,7 +95,7 @@ export async function fetchSessions(token: string): Promise<SessionRow[]> {
   if (!res.ok) {
     throw new Error("Failed to load sessions");
   }
-  return (await res.json()) as SessionRow[];
+  return (await res.json()) as PaginatedSessions;
 }
 
 export async function fetchSessionDetail(
@@ -103,43 +129,79 @@ export async function generateSessionRating(
   return (await res.json()) as SessionDetail;
 }
 
-export type SystemQuestion = {
-  id: string;
-  text: string;
-  tags: string | null;
-  is_active: number;
-  created_at: string;
-};
-
-export async function fetchQuestions(): Promise<SystemQuestion[]> {
-  const res = await fetch(`${API_BASE}/api/admin/questions/`);
+export async function fetchQuestions(
+  token: string,
+  page: number = 1,
+  pageSize: number = 10
+): Promise<PaginatedQuestions> {
+  const res = await fetch(`${API_BASE}/api/admin/questions/?page=${page}&page_size=${pageSize}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   if (!res.ok) throw new Error("Failed to load questions");
-  return (await res.json()) as SystemQuestion[];
+  return (await res.json()) as PaginatedQuestions;
 }
 
-export async function createQuestion(data: Partial<SystemQuestion>): Promise<SystemQuestion> {
+export async function createQuestion(
+  token: string,
+  data: Partial<SystemQuestion>
+): Promise<SystemQuestion> {
   const res = await fetch(`${API_BASE}/api/admin/questions/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
     body: JSON.stringify(data)
   });
   if (!res.ok) throw new Error("Failed to create question");
   return (await res.json()) as SystemQuestion;
 }
 
-export async function updateQuestion(id: string, data: Partial<SystemQuestion>): Promise<SystemQuestion> {
+export async function updateQuestion(
+  token: string,
+  id: string, 
+  data: Partial<SystemQuestion>
+): Promise<SystemQuestion> {
   const res = await fetch(`${API_BASE}/api/admin/questions/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    method: "PUT",
+    headers: { 
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
     body: JSON.stringify(data)
   });
   if (!res.ok) throw new Error("Failed to update question");
   return (await res.json()) as SystemQuestion;
 }
 
-export async function deleteQuestion(id: string): Promise<void> {
+export async function patchQuestion(
+  token: string,
+  id: string, 
+  data: Partial<SystemQuestion>
+): Promise<SystemQuestion> {
   const res = await fetch(`${API_BASE}/api/admin/questions/${id}`, {
-    method: "DELETE"
+    method: "PATCH",
+    headers: { 
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error("Failed to update question status");
+  return (await res.json()) as SystemQuestion;
+}
+
+export async function deleteQuestion(
+  token: string,
+  id: string
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/admin/questions/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
   });
   if (!res.ok) throw new Error("Failed to delete question");
 }
@@ -151,4 +213,3 @@ export function getWsUrl(): string {
   if (configured) return configured;
   return "ws://localhost:8000/ws";
 }
-

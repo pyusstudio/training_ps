@@ -1,360 +1,310 @@
-import React, { useState } from "react";
-import { RoleplayEvent, SessionDetail, generateSessionRating } from "../lib/api";
+import React, { useEffect, useState } from "react";
+import {
+  fetchSessionDetail,
+  generateSessionRating,
+  SessionDetail,
+  RoleplayEvent
+} from "../lib/api";
 import { useAuth } from "../state/authStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Clock, Target, ShieldCheck, AlertCircle, MessageSquare, Play, FastForward, CheckCircle2, User, Bot, Loader2 } from "lucide-react";
+import { 
+  X, Clock, Target, Hash, User, MessageSquare, 
+  ChevronRight, Brain, Zap, AlertTriangle, CheckCircle, 
+  RotateCw, Terminal, ArrowRight, Star
+} from "lucide-react";
 
 type Props = {
-  detail: SessionDetail | null;
-  onRefresh?: () => void;
+  sessionId: string | null;
+  onClose: () => void;
 };
 
-export function SessionDetailPanel({ detail, onRefresh }: Props) {
+export function SessionDetailModal({ sessionId, onClose }: Props) {
   const { token } = useAuth();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<SessionDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [ratingLoading, setRatingLoading] = useState(false);
 
-  if (!detail) {
-    return (
-      <div className="flex h-full min-h-[500px] flex-col items-center justify-center rounded-[2rem] bg-slate-900/40 backdrop-blur-md border border-white/5 shadow-inner">
-        <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6 border border-white/5">
-          <Activity className="w-10 h-10 text-slate-600" />
-        </div>
-        <h3 className="text-xl font-bold text-slate-300">Awaiting Selection</h3>
-        <p className="text-sm text-slate-500 mt-2 max-w-xs text-center">Select a session from the telemetry table to review detailed analytics.</p>
-      </div>
-    );
-  }
-
-  const { id, source, started_at, duration_seconds, total_score, avg_score, accuracy_percentage, events, ai_rating_json } = detail;
-
-  let rating: any = null;
-  if (ai_rating_json) {
-    try {
-      rating = typeof ai_rating_json === 'string' ? JSON.parse(ai_rating_json) : ai_rating_json;
-    } catch (e) {
-      console.error("Failed to parse rating JSON", e);
+  useEffect(() => {
+    if (sessionId && token) {
+      loadDetail();
+    } else {
+      setDetail(null);
     }
-  }
+  }, [sessionId, token]);
 
-  const handleGenerateRating = async () => {
-    if (!token) return;
-    setIsGenerating(true);
-    setGenerationError(null);
+  const loadDetail = async () => {
+    if (!sessionId || !token) return;
+    setLoading(true);
     try {
-      await generateSessionRating(token, id);
-      setTimeout(() => {
-        if (onRefresh) onRefresh();
-        else window.location.reload();
-      }, 500);
-    } catch (e: any) {
-      setGenerationError(e.message || "Generation failed.");
+      const res = await fetchSessionDetail(token, sessionId);
+      setDetail(res);
+    } catch (err) {
+      console.error(err);
     } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
 
-  const shortId = id.split('-')[0].toUpperCase();
+  const runRating = async () => {
+    if (!sessionId || !token) return;
+    setRatingLoading(true);
+    try {
+      const res = await generateSessionRating(token, sessionId);
+      setDetail(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRatingLoading(false);
+    }
+  };
+
+  if (!sessionId) return null;
 
   return (
-    <div className="rounded-[1.5rem] md:rounded-[2rem] border border-white/5 bg-slate-900/40 backdrop-blur-xl flex flex-col overflow-hidden h-full shadow-2xl relative w-full">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[80px] pointer-events-none" />
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[100] flex justify-end">
+        {/* Backdrop */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+        />
 
-      {/* HEADER */}
-      <div className="px-4 md:px-8 py-4 md:py-6 border-b border-white/5 bg-black/20 flex flex-col xl:flex-row xl:items-center justify-between gap-4 z-10 w-full">
-        <div>
-          <h2 className="text-xl font-black text-white flex items-center gap-3 drop-shadow-md">
-            Review Protocol
-            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-lg shadow-sm">ID: {shortId}</span>
-          </h2>
-        </div>
-
-        <div className="flex flex-wrap gap-2 sm:gap-4 md:gap-8 text-sm bg-black/30 px-4 md:px-6 py-3 rounded-[1rem] md:rounded-2xl border border-white/5 backdrop-blur-md">
-          <div className="flex items-center gap-2 md:gap-3 shrink-0">
-            <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-slate-800/80 flex items-center justify-center">
-              <FastForward className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Source</span>
-              <span className="font-bold text-slate-200 leading-none uppercase">{source}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-800/80 flex items-center justify-center">
-              <Clock className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Time</span>
-              <span className="font-bold text-slate-200 leading-none">{new Date(started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-800/80 flex items-center justify-center">
-              <Play className="w-4 h-4 text-cyan-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Duration</span>
-              <span className="font-mono font-bold text-cyan-400 leading-none">
-                {duration_seconds != null
-                  ? `${Math.floor(duration_seconds / 60)}:${(duration_seconds % 60).toString().padStart(2, '0')}`
-                  : "-"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 z-10 custom-scrollbar">
-
-        {/* METRICS GRID */}
-        {total_score !== null && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6"
-          >
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 relative overflow-hidden group">
-              <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform"><Activity className="w-16 h-16 text-emerald-500" /></div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-2">Total Score</div>
-              <div className="text-3xl font-black text-white">{total_score}</div>
-            </div>
-            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-5 relative overflow-hidden group">
-              <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform"><Target className="w-16 h-16 text-cyan-500" /></div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-2">Avg Quality</div>
-              <div className="text-3xl font-black text-white">{avg_score}</div>
-            </div>
-            <div className="rounded-2xl border border-purple-500/20 bg-purple-500/10 p-5 relative overflow-hidden group">
-              <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform"><CheckCircle2 className="w-16 h-16 text-purple-500" /></div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-purple-400 mb-2">Hit Rate</div>
-              <div className="text-3xl font-black text-white">{accuracy_percentage}%</div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* RATING CARD */}
-        <AnimatePresence mode="wait">
-          {rating ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="rounded-2xl md:rounded-3xl bg-gradient-to-br from-indigo-900/40 to-slate-900/60 border border-indigo-500/30 p-5 md:p-8 shadow-xl relative overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500" />
-
-              <div className="flex flex-col md:flex-row justify-between md:items-center gap-6 mb-8">
-                <div>
-                  <h3 className="text-xl font-black text-white mb-1">AI Assessor Synthesis</h3>
-                  <p className="text-sm font-medium text-indigo-300/80">Automated performance evaluation generated post-session.</p>
-                </div>
-                <div className="flex items-center justify-center bg-black/40 rounded-2xl px-4 md:px-6 py-3 md:py-4 border border-indigo-500/40 shadow-inner w-full md:w-auto">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-1">Mastery</span>
-                    <div>
-                      <span className="font-black text-3xl text-white drop-shadow-md">{rating.overall_score}</span>
-                      <span className="text-sm font-bold text-indigo-400/60 ml-0.5">/10</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-black/30 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm shadow-inner">
-                  <span className="text-xs font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2 mb-4">
-                    <div className="w-6 h-6 rounded-md bg-emerald-500/20 flex items-center justify-center"><ShieldCheck className="w-3.5 h-3.5" /></div>
-                    Tactical Dominance
+        {/* Modal/Drawer Content */}
+        <motion.div
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          className="relative w-full max-w-[900px] h-full bg-[#06091A] border-l border-white/10 shadow-[-50px_0_100px_rgba(0,0,0,0.5)] flex flex-col"
+        >
+          {/* Header */}
+          <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+            <div className="flex items-center gap-6">
+              <button 
+                onClick={onClose}
+                className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all active:scale-95"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="text-[10px] font-black tracking-[0.3em] text-violet-500 uppercase">Telemetry Node</span>
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${detail?.ended_at ? 'bg-slate-500/10 text-slate-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    {detail?.ended_at ? 'ARCHIVED' : 'ACTIVE'}
                   </span>
-                  <div className="space-y-3">
-                    {rating.strengths?.map((s: string, i: number) => (
-                      <div key={i} className="flex gap-3 items-start group">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
-                        <span className="text-slate-300 font-medium text-sm leading-relaxed">{s}</span>
-                      </div>
-                    )) || <span className="text-slate-500 italic text-sm">No significant strengths detected.</span>}
-                  </div>
                 </div>
-                <div className="bg-black/30 border border-amber-500/20 rounded-2xl p-6 backdrop-blur-sm shadow-inner">
-                  <span className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2 mb-4">
-                    <div className="w-6 h-6 rounded-md bg-amber-500/20 flex items-center justify-center"><AlertCircle className="w-3.5 h-3.5" /></div>
-                    Strategic Gaps
-                  </span>
-                  <div className="space-y-3">
-                    {rating.improvements?.map((s: string, i: number) => (
-                      <div key={i} className="flex gap-3 items-start group">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
-                        <span className="text-slate-300 font-medium text-sm leading-relaxed">{s}</span>
-                      </div>
-                    )) || <span className="text-slate-500 italic text-sm">No major improvements flagged.</span>}
-                  </div>
+                <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                  Session <span className="text-slate-500 font-mono">#{sessionId.split('-')[0].toUpperCase()}</span>
+                </h2>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+               <button 
+                onClick={runRating}
+                disabled={ratingLoading || !detail}
+                className="flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-30 disabled:hover:bg-violet-600 text-white text-xs font-black rounded-xl shadow-lg shadow-violet-600/20 transition-all active:scale-95"
+               >
+                 {ratingLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                 {detail?.ai_rating_json ? "Regenerate AI Audit" : "Request AI Audit"}
+               </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar">
+            {loading ? (
+              <div className="h-full flex flex-col items-center justify-center gap-4 py-20">
+                <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2 animate-pulse">Decrypting data streams...</p>
+              </div>
+            ) : detail ? (
+              <>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col">
+                     <Clock className="w-5 h-5 text-cyan-400 mb-4" />
+                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Duration</p>
+                     <h3 className="text-2xl font-black text-white">{detail.duration_seconds ? `${Math.floor(detail.duration_seconds / 60)}m ${detail.duration_seconds % 60}s` : "-"}</h3>
+                   </div>
+                   <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col">
+                     <Target className="w-5 h-5 text-violet-400 mb-4" />
+                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Performance</p>
+                     <h3 className="text-2xl font-black text-white">{detail.avg_score || 0}%</h3>
+                   </div>
+                   <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col">
+                     <Star className="w-5 h-5 text-amber-400 mb-4" />
+                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Persona</p>
+                     <h3 className="text-2xl font-black text-white capitalize">{detail.persona_id}</h3>
+                   </div>
                 </div>
-              </div>
 
-              <div className="mt-6 bg-indigo-500/5 rounded-2xl p-6 border border-indigo-500/10">
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-4 block">Detailed Evaluation Report</span>
-
-                {typeof rating.detailed_feedback === 'string' ? (
-                  <p className="text-base font-medium italic text-slate-200 leading-relaxed border-l-2 border-indigo-500/50 pl-4">
-                    "{rating.detailed_feedback}"
-                  </p>
-                ) : rating.detailed_feedback?.error ? (
-                  <div className="text-red-400 font-medium bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                    Error generating feedback: {rating.detailed_feedback.error}
-                  </div>
-                ) : rating.detailed_feedback ? (
-                  <div className="space-y-6">
-                    {/* Section 1: Customer Engagement */}
-                    <div className="bg-black/20 rounded-xl p-4 border border-white/5">
-                      <h5 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <User className="w-4 h-4" /> Customer Engagement
-                      </h5>
-                      <p className="text-slate-300 font-medium text-sm leading-relaxed">
-                        {rating.detailed_feedback.customer_engagement || "No feedback provided."}
-                      </p>
+                {/* AI Rating Section */}
+                {detail.ai_rating_json && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gradient-to-br from-violet-600/20 to-cyan-600/10 border border-violet-500/30 rounded-[2.5rem] p-10 relative overflow-hidden"
+                  >
+                    <div className="absolute top-[-10%] right-[-10%] opacity-10 rotate-12">
+                       <Brain className="w-40 h-40 text-violet-400" />
                     </div>
-
-                    {/* Section 2: Needs Assessment & Pitch */}
-                    <div className="bg-black/20 rounded-xl p-4 border border-white/5">
-                      <h5 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <Target className="w-4 h-4" /> Needs Assessment & Pitch
-                      </h5>
-                      <p className="text-slate-300 font-medium text-sm leading-relaxed">
-                        {rating.detailed_feedback.needs_assessment_and_pitch || "No feedback provided."}
-                      </p>
-                    </div>
-
-                    {/* Section 3: Objection Handling & Closing */}
-                    <div className="bg-black/20 rounded-xl p-4 border border-white/5">
-                      <h5 className="text-sm font-bold text-purple-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <Activity className="w-4 h-4" /> Objection Handling & Closing
-                      </h5>
-                      <p className="text-slate-300 font-medium text-sm leading-relaxed">
-                        {rating.detailed_feedback.objection_handling_and_closing || "No feedback provided."}
-                      </p>
-                    </div>
-
-                    {/* Section 4: Areas for Improvement Coaching */}
-                    {rating.detailed_feedback.areas_for_improvement && rating.detailed_feedback.areas_for_improvement.length > 0 && (
-                      <div className="bg-amber-500/5 rounded-xl p-4 border border-amber-500/20 mt-4">
-                        <h5 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" /> Strategic Takeaways
-                        </h5>
-                        <ul className="space-y-1">
-                          {rating.detailed_feedback.areas_for_improvement.map((item: string, idx: number) => (
-                            <li key={idx} className="flex gap-2 text-slate-300 font-medium text-sm items-start">
-                              <span className="text-amber-500 shrink-0 mt-0.5">•</span> {item}
-                            </li>
-                          ))}
-                        </ul>
+                    <div className="relative">
+                      <div className="flex items-center gap-4 mb-8">
+                        <div className="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center shadow-lg shadow-violet-600/40">
+                          <Zap className="text-white w-6 h-6" />
+                        </div>
+                         <div>
+                           <h3 className="text-xl font-black text-white">Qualitative Performance Audit</h3>
+                           <p className="text-xs font-bold text-violet-300">Artificial Intelligence Analysis</p>
+                         </div>
+                         <div className="ml-auto flex flex-col items-center">
+                            <span className="text-[10px] font-black text-violet-300 uppercase mb-1">Overall</span>
+                            <span className="text-4xl font-black text-white">{detail.ai_rating_json.overall_score}</span>
+                         </div>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-slate-500 italic">No detailed feedback available.</p>
-                )}
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-12 px-6 border-2 border-dashed border-slate-700 rounded-3xl bg-black/20"
-            >
-              <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-4">
-                <Bot className="w-8 h-8 text-indigo-400" />
-              </div>
-              <h3 className="text-lg font-bold text-white mb-2">Evaluation Pending</h3>
-              <p className="text-sm font-medium text-slate-400 mb-8 max-w-sm text-center">Execute the AI assessor protocol to synthesize performance metrics and generate actionable feedback.</p>
 
-              <AnimatePresence>
-                {generationError && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-bold text-red-400 mb-6 bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-xl flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" /> {generationError}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                         <div className="space-y-6">
+                            <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                               <CheckCircle className="w-4 h-4" /> Tactical Strengths
+                            </h4>
+                            <ul className="space-y-3">
+                               {detail.ai_rating_json.strengths.map((s: string, i: number) => (
+                                 <li key={i} className="flex gap-4 group">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
+                                    <p className="text-sm font-medium text-slate-200 leading-relaxed">{s}</p>
+                                 </li>
+                               ))}
+                            </ul>
+                         </div>
+                         <div className="space-y-6">
+                            <h4 className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                               <AlertTriangle className="w-4 h-4" /> Critical Improvements
+                            </h4>
+                            <ul className="space-y-3">
+                               {detail.ai_rating_json.improvements.map((s: string, i: number) => (
+                                 <li key={i} className="flex gap-4 group">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
+                                    <p className="text-sm font-medium text-slate-200 leading-relaxed">{s}</p>
+                                 </li>
+                               ))}
+                            </ul>
+                         </div>
+                      </div>
+
+                      <div className="mt-10 pt-10 border-t border-white/10">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 text-center">Strategic Feedback Analysis</h4>
+                        <div className="bg-white/5 p-8 rounded-3xl border border-white/5 space-y-8">
+                          {typeof detail.ai_rating_json.detailed_feedback === 'object' ? (
+                            <div className="grid grid-cols-1 gap-8">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                {detail.ai_rating_json.detailed_feedback.customer_engagement && (
+                                  <div className="space-y-3">
+                                    <h5 className="text-[10px] font-black text-violet-400 uppercase tracking-widest">Rapport & Engagement</h5>
+                                    <p className="text-sm font-medium text-slate-300 leading-relaxed">{detail.ai_rating_json.detailed_feedback.customer_engagement}</p>
+                                  </div>
+                                )}
+                                {detail.ai_rating_json.detailed_feedback.needs_assessment_and_pitch && (
+                                  <div className="space-y-3">
+                                    <h5 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Assessment & Pitch</h5>
+                                    <p className="text-sm font-medium text-slate-300 leading-relaxed">{detail.ai_rating_json.detailed_feedback.needs_assessment_and_pitch}</p>
+                                  </div>
+                                )}
+                                {detail.ai_rating_json.detailed_feedback.objection_handling_and_closing && (
+                                  <div className="space-y-3">
+                                    <h5 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Closing Strategy</h5>
+                                    <p className="text-sm font-medium text-slate-300 leading-relaxed">{detail.ai_rating_json.detailed_feedback.objection_handling_and_closing}</p>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {detail.ai_rating_json.detailed_feedback.areas_for_improvement && Array.isArray(detail.ai_rating_json.detailed_feedback.areas_for_improvement) && detail.ai_rating_json.detailed_feedback.areas_for_improvement.length > 0 && (
+                                <div className="pt-8 border-t border-white/5">
+                                  <h5 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4">Tactical Coaching Roadmap</h5>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {detail.ai_rating_json.detailed_feedback.areas_for_improvement.map((point: string, i: number) => (
+                                      <div key={i} className="flex items-center gap-3 bg-white/[0.02] p-4 rounded-2xl border border-white/5">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                        <p className="text-xs font-semibold text-slate-400">{point}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm font-medium text-slate-300 italic leading-[1.8] text-center">
+                              "{detail.ai_rating_json.detailed_feedback}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 )}
-              </AnimatePresence>
 
-              <button
-                onClick={handleGenerateRating}
-                disabled={isGenerating || events.length === 0}
-                className="group relative bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black px-8 py-4 rounded-xl flex items-center gap-3 transition-all shadow-[0_10px_20px_rgba(79,70,229,0.2)] hover:scale-105 active:scale-95 disabled:hover:scale-100 overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <span className="relative z-10 flex items-center gap-3">
-                  {isGenerating ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Synthesizing Data...</>
-                  ) : (
-                    <><Activity className="w-5 h-5" /> Initialize AI Assessor</>
-                  )}
-                </span>
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* TRANSCRIPT */}
-        <div className="pt-4 border-t border-white/5">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
-              <MessageSquare className="w-4 h-4 text-emerald-400" />
-              Complete Decrypt
-            </h3>
-            <span className="text-xs font-bold text-slate-500">{events.length} Messages</span>
-          </div>
-
-          <div className="space-y-6">
-            {events.length === 0 ? (
-              <div className="text-center py-8 border border-white/5 rounded-2xl bg-black/20">
-                <p className="text-sm font-medium text-slate-500">No transmissions recorded yet.</p>
-              </div>
-            ) : (
-              events.map((e, idx) => (
-                <motion.div
-                  initial={{ opacity: 0, x: e.speaker === 'client' ? -20 : 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  key={e.id}
-                  className={`flex ${e.speaker === 'client' ? 'justify-start' : 'justify-end'} w-full`}
-                >
-                  <div className={`flex gap-2 sm:gap-4 max-w-[95%] sm:max-w-[85%] ${e.speaker === 'salesperson' ? 'flex-row-reverse' : ''} shrink-0`}>
-                    <div className={`shrink-0 mt-auto w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg border ${e.speaker === 'client'
-                      ? 'bg-gradient-to-br from-cyan-600 to-blue-800 border-cyan-400/30'
-                      : 'bg-emerald-500 border-emerald-400/50'
-                      }`}>
-                      {e.speaker === 'client' ? <Bot className="w-5 h-5 text-white" /> : <User className="w-5 h-5 text-black" />}
-                    </div>
-
-                    <div className={`flex flex-col gap-2 ${e.speaker === 'salesperson' ? 'items-end' : 'items-start'}`}>
-                      <div className={`px-6 py-4 rounded-3xl shadow-xl border backdrop-blur-md ${e.speaker === 'client'
-                        ? 'bg-slate-900/80 border-white/10 rounded-bl-sm text-white'
-                        : 'bg-emerald-600/90 border-emerald-500/50 rounded-br-sm text-white'
-                        }`}>
-                        <p className="text-sm md:text-[15px] font-medium leading-relaxed whitespace-pre-wrap">{e.transcript || <span className="opacity-50 italic">Empty transmission</span>}</p>
-                      </div>
-
-                      <div className={`flex items-center gap-3 ${e.speaker === 'salesperson' ? 'flex-row-reverse' : ''}`}>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracing-wider">
-                          {e.speaker === "client" ? "Customer" : "Trainee"}
-                        </span>
-
-                        {e.score !== null && (
-                          <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${e.score >= 80
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                            : e.score >= 60
-                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                              : 'bg-red-500/10 border-red-500/30 text-red-400'
-                            }`}>
-                            Score: {e.score}
-                            {e.intent_category && <span className="opacity-75 font-medium ml-1">| {e.intent_category}</span>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                {/* Transcript */}
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-6">
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] flex items-center gap-3">
+                      <Terminal className="w-4 h-4 text-cyan-400" />
+                      Interaction Log
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{detail.events.length} TRANSMISSIONS</span>
                   </div>
-                </motion.div>
-              ))
+
+                  <div className="space-y-8">
+                    {detail.events.map((e, idx) => {
+                      const isClient = e.speaker === "client";
+                      return (
+                        <div 
+                          key={e.id}
+                          className={`flex ${isClient ? 'justify-start' : 'justify-end'}`}
+                        >
+                          <div className={`max-w-[80%] flex items-start gap-4 ${isClient ? 'flex-row' : 'flex-row-reverse text-right'}`}>
+                            <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center border transition-all duration-500 ${isClient ? 'bg-violet-600/20 border-violet-500/20 text-violet-400 shadow-[0_0_15px_rgba(124,58,237,0.1)]' : 'bg-cyan-600/20 border-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.1)]'}`}>
+                              {isClient ? <Zap className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                            </div>
+                            <div className="space-y-2">
+                              <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                                {e.speaker === "client" ? "AI PERSONA" : "SALESPERSON"} • STEP {e.step_id}
+                              </span>
+                              <div className={`p-6 rounded-[2rem] text-sm font-medium leading-relaxed border ${isClient ? 'bg-white/5 border-white/10 text-slate-100 rounded-tl-none' : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-50 shadow-[0_0_20px_rgba(6,182,212,0.05)] rounded-tr-none'}`}>
+                                {e.transcript}
+                              </div>
+                              {!isClient && e.score != null && (
+                                <div className="flex items-center gap-4 mt-2 px-1">
+                                   <div className="flex items-center gap-1.5">
+                                      <div className={`w-1.5 h-1.5 rounded-full ${e.score >= 80 ? 'bg-emerald-400' : e.score >= 60 ? 'bg-amber-400' : 'bg-red-400'}`} />
+                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Score {e.score}</span>
+                                   </div>
+                                   {e.intent_category && (
+                                     <span className="text-[10px] font-black text-slate-600 uppercase tracking-tighter border border-white/5 px-2 py-0.5 rounded italic">
+                                        \"{e.intent_category}\"
+                                     </span>
+                                   )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-600">
+                <AlertTriangle className="w-12 h-12 mb-4 opacity-20" />
+                <p className="font-bold uppercase tracking-widest text-xs">Node identifier not found in primary storage.</p>
+              </div>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 }
