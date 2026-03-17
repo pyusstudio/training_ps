@@ -107,7 +107,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         )
         for task in done:
             exc = task.exception()
-            if exc and not isinstance(exc, WebSocketDisconnect):
+            if exc and not isinstance(exc, (WebSocketDisconnect, asyncio.CancelledError)):
                 logger.debug(f"Task exception in {task.get_name()}: {exc}")
                 
     except asyncio.CancelledError:
@@ -134,6 +134,8 @@ async def _sender(conn: Connection, shutdown: asyncio.Event) -> None:
             await conn.websocket.send_json(msg.model_dump(mode="json"))
         except asyncio.TimeoutError:
             continue
+        except asyncio.CancelledError:
+            break
         except Exception:
             break
 
