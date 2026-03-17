@@ -920,7 +920,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bc2b233d81a7b514385078d01e457da6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ReflexWebSocketManager
-  baseUrl: wss://training-ps.onrender.com/ws
+  baseUrl: wss://reflex-backend.pyuscraft.space/ws
   role: trainee
   personaId: elena
   userId: unity_user_1

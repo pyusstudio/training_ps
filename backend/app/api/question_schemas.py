@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
-from uuid import uuid4
+from pydantic import BaseModel, ConfigDict
 
 class QuestionBase(BaseModel):
     text: str
@@ -17,6 +16,8 @@ class QuestionUpdate(BaseModel):
     is_active: Optional[int] = None
 
 class QuestionRead(QuestionBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     created_at: datetime
 
