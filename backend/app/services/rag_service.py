@@ -31,7 +31,7 @@ class RagService:
         await self._ensure_model()
         
         logger.info("Rebuilding FAISS index for questions...")
-        questions = await SystemQuestion.find(SystemQuestion.is_active == 1).to_list()
+        questions = await SystemQuestion.find({"is_active": 1}).to_list()
         
         if not questions:
             logger.warning("No active questions found to index.")

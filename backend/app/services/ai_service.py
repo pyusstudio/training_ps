@@ -577,10 +577,21 @@ class HuggingFaceProvider(AIProvider):
             
         self.history[session_id].append({"role": "user", "content": prompt})
         
+        # Truncate history to avoid exceeding HF Inference API limits (approx 4-5 turns + system prompt)
+        # Keep the first message (system) and the last 6 messages
+        history = self.history[session_id]
+        if len(history) > 8:
+            system_msg = history[0]
+            recent_context = history[-7:] # Keep the last 7 messages
+            # Ensure we have the system message at the start
+            messages_to_send = [system_msg] + [m for m in recent_context if m != system_msg]
+        else:
+            messages_to_send = history
+
         try:
             response = await self.client.chat_completion(
                 model=self.model,
-                messages=self.history[session_id],
+                messages=messages_to_send,
                 max_tokens=150,
                 temperature=0.7
             )
