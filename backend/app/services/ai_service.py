@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
 
 from ..config import get_settings
+from .rag_service import rag_service
 
 logger = logging.getLogger("ai_service")
 _SETTINGS = get_settings()
@@ -202,18 +203,84 @@ class ReplyEvaluation(BaseModel):
 class AIProvider(abc.ABC):
     def __init__(self):
         self.history: Dict[str, List[Dict[str, str]]] = {}
+        self.persona_map: Dict[str, str] = {}
+
+    async def _get_fallback_reply(self, session_id: str, salesperson_message: str, persona_id: str = "elena") -> tuple[str, Optional[str]]:
+        """Combined RAG and Persona-specific fallback. Returns (text, question_id)."""
+        persona_qs = self._extract_persona_questions(persona_id)
+        history = self.history.get(session_id, [])
+        used_content = [msg["content"].lower() for msg in history if msg["role"] in ["assistant", "model"]]
+        
+        try:
+            rag_results = await rag_service.search_questions(salesperson_message, top_k=3)
+            for rq_text, rq_id in rag_results:
+                if rq_text.lower() not in used_content:
+                    logger.info(f"Fallback: Using RAG question for session {session_id} | q_id={rq_id}")
+                    return rq_text, rq_id
+        except Exception as e:
+            logger.error(f"RAG fallback error: {e}")
+
+        for idx, pq in enumerate(persona_qs):
+            if pq.lower() not in used_content:
+                logger.info(f"Fallback: Using Persona question for session {session_id} | index={idx}")
+                return pq, f"persona_{persona_id}_{idx}"
+        
+        logger.warning(f"Fallback: Using Default question for session {session_id}")
+        return "Can you tell me more about the features of this BMW?", "default_fallback"
+
+    def _get_fallback_greeting(self, persona_id: str) -> str:
+        """Return persona-specific greeting for session start fallback."""
+        greetings = {
+            "elena": "Hi there! I'm looking for something bold, a car that really turns heads. What can you show me?",
+            "robert": "Hi. I'm looking for your best performance BMW — what can you show me?",
+            "sarah": "Hello. I've always admired BMWs, but I'm trying to make a responsible choice—can you help me?",
+            "david": "Hello. I've been doing some research on BMWs—I want to make sure I'm making the right choice for my family."
+        }
+        return greetings.get(persona_id, greetings["elena"])
+
+    def move_session(self, old_id: str, new_id: str):
+        """Transfer history and persona map between session IDs."""
+        if old_id in self.history:
+            self.history[new_id] = self.history.pop(old_id)
+        if old_id in self.persona_map:
+            self.persona_map[new_id] = self.persona_map.pop(old_id)
+
+    def cleanup_session(self, session_id: str):
+        self.history.pop(session_id, None)
+        self.persona_map.pop(session_id, None)
+
+    def _extract_persona_questions(self, persona_id: str) -> List[str]:
+        """Parse structured questions from persona prompt."""
+        prompt = get_system_prompt(persona_id)
+        # Match the "Question Priorities" section
+        match = re.search(r"Your Question Priorities \(in rough order\):\s*(.*?)(?:\n\n|\Z)", prompt, re.DOTALL)
+        if not match:
+            return []
+            
+        questions_block = match.group(1)
+        # Find lines like "1. Question text"
+        qs = []
+        for line in questions_block.strip().split('\n'):
+            line = line.strip()
+            if re.match(r'^\d+\.', line):
+                q_text = re.sub(r'^\d+\.\s*', '', line)
+                qs.append(q_text)
+        return qs
 
     def _init_history(self, session_id: str, persona_id: str = "elena"):
         if session_id not in self.history:
             self.history[session_id] = [{"role": "system", "content": get_system_prompt(persona_id)}]
+            self.persona_map[session_id] = persona_id
 
     @abc.abstractmethod
-    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> str:
-        """Initialize and return the client's opening line."""
+    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> tuple[str, Optional[str]]:
+        """Initialize and return (opening_line, question_id)."""
         pass
 
     @abc.abstractmethod
-    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> str:
+    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> tuple[str, Optional[str]]:
+        """Get the client's next response as (text, question_id)."""
+        pass
         """Get the client's next response."""
         pass
 
@@ -241,7 +308,7 @@ class GeminiProvider(AIProvider):
             genai.configure(api_key=_SETTINGS.gemini_api_key)
         self.model = genai.GenerativeModel("gemini-1.5-flash")
 
-    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> str:
+    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> tuple[str, Optional[str]]:
         self._init_history(session_id, persona_id)
         
         prompt = "Act as the customer. Look at the context and initiate the conversation naturally. You can start with a general greeting or ask to see cars/SUVs without immediately naming the model. Keep your response to 1-2 realistic sentences."
@@ -253,12 +320,16 @@ class GeminiProvider(AIProvider):
             response = await asyncio.to_thread(chat.send_message, prompt)
             reply = response.text
             self.history[session_id].append({"role": "model", "content": reply})
-            return reply
+            return reply, None
         except Exception as e:
-            logger.error(f"Gemini API error: {e}")
-            return f"Hi, I'm here to look at some cars."
+            logger.error(f"Gemini start error: {e}")
+            reply_text = self._get_fallback_greeting(persona_id)
+            self.history[session_id].append({"role": "model", "content": reply_text})
+            return reply_text, "greeting_fallback"
 
-    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> str:
+    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> tuple[str, Optional[str]]:
+        persona_id = self.persona_map.get(session_id, "elena")
+
         self._init_history(session_id)
         self.history[session_id].append({"role": "user", "content": f"Salesperson says: {salesperson_message}"})
         
@@ -276,10 +347,12 @@ class GeminiProvider(AIProvider):
             response = await asyncio.to_thread(chat.send_message, prompt)
             reply = response.text
             self.history[session_id].append({"role": "model", "content": reply})
-            return reply
+            return reply, None
         except Exception as e:
             logger.error(f"Gemini API error: {e}")
-            return f"I see. Tell me more about that."
+            reply_text, q_id = await self._get_fallback_reply(session_id, salesperson_message, persona_id)
+            self.history[session_id].append({"role": "model", "content": reply_text})
+            return reply_text, q_id
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
@@ -345,7 +418,7 @@ class OpenAIProvider(AIProvider):
         self.client = openai.AsyncOpenAI(api_key=_SETTINGS.openai_api_key)
         self.model = "gpt-4o-mini"
 
-    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> str:
+    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> tuple[str, Optional[str]]:
         self._init_history(session_id, persona_id)
         try:
             messages = self.history[session_id].copy()
@@ -359,12 +432,15 @@ class OpenAIProvider(AIProvider):
             )
             reply = response.choices[0].message.content
             self.history[session_id].append({"role": "assistant", "content": reply})
-            return reply
+            return reply, None
         except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            return "Hi there, I'm here to look at some cars."
+            logger.error(f"OpenAI start error: {e}")
+            reply_text = self._get_fallback_greeting(persona_id)
+            self.history[session_id].append({"role": "assistant", "content": reply_text})
+            return reply_text, "greeting_fallback"
 
-    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> str:
+    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> tuple[str, Optional[str]]:
+        persona_id = self.persona_map.get(session_id, "elena")
         self._init_history(session_id)
         
         prompt = f"Salesperson says: {salesperson_message}. Respond as the customer. Keep it short (1-3 sentences) and conversational."
@@ -384,10 +460,12 @@ class OpenAIProvider(AIProvider):
             )
             reply = response.choices[0].message.content
             self.history[session_id].append({"role": "assistant", "content": reply})
-            return reply
+            return reply, None
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
-            return "I see. What kind of financing do you offer?"
+            reply_text, q_id = await self._get_fallback_reply(session_id, salesperson_message, persona_id)
+            self.history[session_id].append({"role": "assistant", "content": reply_text})
+            return reply_text, q_id
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
@@ -462,7 +540,7 @@ class HuggingFaceProvider(AIProvider):
         self.client = AsyncInferenceClient(token=_SETTINGS.huggingface_api_key)
         self.model = _SETTINGS.huggingface_model
 
-    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> str:
+    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> tuple[str, Optional[str]]:
         self._init_history(session_id, persona_id)
         try:
             messages = self.history[session_id].copy()
@@ -479,13 +557,16 @@ class HuggingFaceProvider(AIProvider):
             else:
                 raise ValueError(f"Unexpected response format: {response}")
             self.history[session_id].append({"role": "assistant", "content": reply})
-            return reply
+            return reply, None
         except Exception as e:
             import traceback
-            logger.error(f"HuggingFace API error: {e}\n{traceback.format_exc()}")
-            return "Hello, I need a reliable commuter car."
+            logger.error(f"HuggingFace start error: {e}\n{traceback.format_exc()}")
+            reply_text = self._get_fallback_greeting(persona_id)
+            self.history[session_id].append({"role": "assistant", "content": reply_text})
+            return reply_text, "greeting_fallback"
 
-    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> str:
+    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> tuple[str, Optional[str]]:
+        persona_id = self.persona_map.get(session_id, "elena")
         self._init_history(session_id)
         
         prompt = f"Salesperson says: {salesperson_message}. Respond as the customer. Keep it short (1-3 sentences) and conversational."
@@ -508,11 +589,13 @@ class HuggingFaceProvider(AIProvider):
             else:
                 raise ValueError(f"Unexpected response format: {response}")
             self.history[session_id].append({"role": "assistant", "content": reply})
-            return reply
+            return reply, None
         except Exception as e:
             import traceback
             logger.error(f"HuggingFace API error: {e}\n{traceback.format_exc()}")
-            return "Is it fuel efficient?"
+            reply_text, q_id = await self._get_fallback_reply(session_id, salesperson_message, persona_id)
+            self.history[session_id].append({"role": "assistant", "content": reply_text})
+            return reply_text, q_id
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
@@ -600,7 +683,7 @@ class OllamaProvider(AIProvider):
         # Using a client per request to avoid managing async context globally here
         # but for production you'd use a single httpx.AsyncClient
 
-    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> str:
+    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> tuple[str, Optional[str]]:
         self._init_history(session_id, persona_id)
         try:
             import httpx
@@ -617,12 +700,15 @@ class OllamaProvider(AIProvider):
                 reply = res.json()["message"]["content"]
                 
             self.history[session_id].append({"role": "assistant", "content": reply})
-            return reply
+            return reply, None
         except Exception as e:
-            logger.error(f"Ollama API error: {e}")
-            return f"[AI Error] Hi, do you have any SUVs? ({str(e)})"
+            logger.error(f"Ollama start error: {e}")
+            reply_text = self._get_fallback_greeting(persona_id)
+            self.history[session_id].append({"role": "assistant", "content": reply_text})
+            return reply_text, "greeting_fallback"
 
-    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> str:
+    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> tuple[str, Optional[str]]:
+        persona_id = self.persona_map.get(session_id, "elena")
         self._init_history(session_id)
         
         prompt = f"Salesperson says: {salesperson_message}. Respond as the customer. Keep it short (1-3 sentences) and conversational."
@@ -645,10 +731,12 @@ class OllamaProvider(AIProvider):
                 reply = res.json()["message"]["content"]
                 
             self.history[session_id].append({"role": "assistant", "content": reply})
-            return reply
+            return reply, None
         except Exception as e:
             logger.error(f"Ollama API error: {e}")
-            return f"[AI Error] What's the cargo space like? ({str(e)})"
+            reply_text, q_id = await self._get_fallback_reply(session_id, salesperson_message, persona_id)
+            self.history[session_id].append({"role": "assistant", "content": reply_text})
+            return reply_text, q_id
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))

@@ -1,6 +1,6 @@
 import asyncio
 import numpy as np
-from typing import List, Optional
+from typing import List, Dict, Optional, Tuple
 import faiss
 from fastembed import TextEmbedding
 from loguru import logger
@@ -37,10 +37,12 @@ class RagService:
             logger.warning("No active questions found to index.")
             self.index = None
             self.question_ids = []
+            self.question_map = {}
             return
 
         texts = [q.text for q in questions]
         q_ids = [q.id for q in questions]
+        self.question_map = {q.id: q.text for q in questions}
     
         # Generate embeddings
         embeddings = list(self.model.embed(texts))
@@ -56,7 +58,7 @@ class RagService:
         self.question_ids = q_ids
         logger.info("FAISS index rebuilt | count={}", len(q_ids))
 
-    async def search_questions(self, query: str, top_k: int = 2, threshold: float = 0.5) -> List[str]:
+    async def search_questions(self, query: str, top_k: int = 2, threshold: float = 1.0) -> List[Tuple[str, str]]:
         """Search questions with a distance threshold (lower is better for L2)."""
         if self.index is None or not self.question_ids:
             # Try to build if empty
@@ -76,8 +78,11 @@ class RagService:
         results = []
         for dist, idx in zip(distances[0], indices[0]):
             if idx != -1 and dist < threshold:
-                results.append(self.question_ids[idx])
-                logger.info("RAG Match Found | dist={:.4f} | q_id={}", dist, self.question_ids[idx])
+                q_id = self.question_ids[idx]
+                q_text = self.question_map.get(q_id)
+                if q_text:
+                    results.append((q_text, q_id))
+                    logger.info("RAG Match Found | dist={:.4f} | q_id={}", dist, q_id)
         
         return results
 

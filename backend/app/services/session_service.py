@@ -40,7 +40,7 @@ async def cleanup_session_lock(session_id: str) -> None:
 
 
 async def _create_db_session(
-    source: str, user_id: Optional[str], scenario: Optional[str], persona_id: str, first_text: str
+    source: str, user_id: Optional[str], scenario: Optional[str], persona_id: str, first_text: str, q_id: Optional[str] = None
 ) -> DbSession:
     session_id = str(uuid4())
     db_session = DbSession(
@@ -60,6 +60,7 @@ async def _create_db_session(
         question_id="greeting",
         speaker="client",
         transcript=first_text,
+        features_json={"source_q_id": q_id} if q_id else None,
     )
     await first_event.insert()
 
@@ -70,14 +71,14 @@ async def start_session(
     source: str, user_id: Optional[str], scenario: Optional[str], persona_id: str = "elena"
 ) -> Tuple[SessionStartedMessage, ClientUtteranceMessage]:
     # Use AI to generate opening line
-    first_text = await ai_provider_instance.start_conversation("temp_id", persona_id)
+    first_text, q_id = await ai_provider_instance.start_conversation("temp_id", persona_id)
     
-    db_session = await _create_db_session(source=source, user_id=user_id, scenario=scenario, persona_id=persona_id, first_text=first_text)
+    db_session = await _create_db_session(source=source, user_id=user_id, scenario=scenario, persona_id=persona_id, first_text=first_text, q_id=q_id)
     session_id = db_session.id
-    logger.info("Started session {}", session_id)
+    logger.info("Started session {} | q_id={}", session_id, q_id)
     
     # Move history to actual session ID
-    ai_provider_instance.history[session_id] = ai_provider_instance.history.pop("temp_id")
+    ai_provider_instance.move_session("temp_id", session_id)
 
     started = SessionStartedMessage(
         type="session_started",
@@ -172,14 +173,12 @@ async def handle_salesperson_response(
             is_final = client_msg_count >= 5
             
             # Fetch suggested questions from RAG
-            suggested_question_ids = await rag_service.search_questions(transcript)
-            suggested_texts = []
-            if suggested_question_ids:
-                suggested_questions = await SystemQuestion.find(SystemQuestion.id.in_(suggested_question_ids)).to_list()
-                suggested_texts = [q.text for q in suggested_questions]
+            # search_questions now returns List[Tuple[text, id]]
+            rag_results = await rag_service.search_questions(transcript)
+            suggested_texts = [r[0] for r in rag_results]
 
-            client_text = await ai_provider_instance.reply(session_id, transcript, is_final=is_final, suggested_questions=suggested_texts)
-            logger.info("AI client reply generated | session_id={} | is_final={} | text={}", session_id, is_final, (client_text[:50] + "...") if len(client_text) > 50 else client_text)
+            client_text, client_q_id = await ai_provider_instance.reply(session_id, transcript, is_final=is_final, suggested_questions=suggested_texts)
+            logger.info("AI client reply generated | session_id={} | q_id={} | is_final={}", session_id, client_q_id, is_final)
             client_step_id = salesperson_step_id + 1
 
             client_event = RoleplayEvent(
@@ -189,6 +188,7 @@ async def handle_salesperson_response(
                 question_id=f"step_{client_step_id}",
                 speaker="client",
                 transcript=client_text,
+                features_json={"source_q_id": client_q_id} if client_q_id else None,
             )
             await client_event.insert()
             next_client_msg = ClientUtteranceMessage(
