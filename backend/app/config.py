@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
     
+    # Groq AI Provider
+    groq_api_key: Optional[str] = None
+    groq_model: str = "llama-3.1-8b-instant"
+    
     session_time_limit_seconds: int = 180  # 3 minutes
 
     # Whisper / STT backup

@@ -685,6 +685,167 @@ Respond ONLY with a raw JSON object. Do not use markdown backticks or explanatio
             return ReplyEvaluation(empathy=5, detail=5, tone_alignment=5, feedback=f"API error: {str(e)}")
 
 
+class GroqProvider(AIProvider):
+    def __init__(self):
+        super().__init__()
+        import openai
+        if not _SETTINGS.groq_api_key:
+            logger.warning("Groq API key not set")
+        self.client = openai.AsyncOpenAI(
+            api_key=_SETTINGS.groq_api_key,
+            base_url="https://api.groq.com/openai/v1"
+        )
+        self.model = _SETTINGS.groq_model
+        # Lazy initialization of HuggingFaceProvider for fallback
+        self._hf_fallback = None
+
+    def _get_hf_fallback(self):
+        if self._hf_fallback is None:
+            self._hf_fallback = HuggingFaceProvider()
+        return self._hf_fallback
+
+    async def start_conversation(self, session_id: str, persona_id: str = "elena") -> tuple[str, Optional[str]]:
+        self._init_history(session_id, persona_id)
+        try:
+            messages = self.history[session_id].copy()
+            messages.append({"role": "user", "content": "Act as the customer. Look at the context and initiate the conversation naturally. You can start with a general greeting or ask to see cars/SUVs without immediately naming the model. Keep your response to 1-2 realistic sentences."})
+            
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=150
+            )
+            reply = response.choices[0].message.content
+            self.history[session_id].append({"role": "assistant", "content": reply})
+            return reply, None
+        except Exception as e:
+            logger.error(f"Groq start error: {e}. Falling back to HuggingFace.")
+            try:
+                hf = self._get_hf_fallback()
+                hf.history[session_id] = self.history[session_id]
+                reply, q_id = await hf.start_conversation(session_id, persona_id)
+                self.history[session_id] = hf.history[session_id]
+                return reply, q_id
+            except Exception as hf_e:
+                logger.error(f"HuggingFace fallback start error: {hf_e}")
+                reply_text = self._get_fallback_greeting(persona_id)
+                self.history[session_id].append({"role": "assistant", "content": reply_text})
+                return reply_text, "greeting_fallback"
+
+    async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> tuple[str, Optional[str]]:
+        persona_id = self.persona_map.get(session_id, "elena")
+        self._init_history(session_id)
+        
+        prompt = f"Salesperson says: {salesperson_message}. Respond as the customer. Keep it short (1-3 sentences) and conversational."
+        if is_final:
+            prompt = f"Salesperson says: {salesperson_message}. This is the end of the conversation. Either make an appointment or say goodbye naturally. Keep it short."
+        elif suggested_questions:
+            prompt += f" OPTIONAL: If it fits perfectly into the current flow, you MAY steer towards these topics: {', '.join(suggested_questions)}. If they don't fit, ignore them and ask your own natural question."
+            
+        self.history[session_id].append({"role": "user", "content": prompt})
+        
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=self.history[session_id],
+                temperature=0.7,
+                max_tokens=150
+            )
+            reply = response.choices[0].message.content
+            self.history[session_id].append({"role": "assistant", "content": reply})
+            return reply, None
+        except Exception as e:
+            logger.error(f"Groq API error: {e}. Falling back to HuggingFace.")
+            try:
+                hf = self._get_hf_fallback()
+                # Synch history before calling HF
+                hf.history[session_id] = self.history[session_id]
+                reply_text, q_id = await hf.reply(session_id, salesperson_message, is_final, suggested_questions)
+                # Synch back
+                self.history[session_id] = hf.history[session_id]
+                return reply_text, q_id
+            except Exception as hf_e:
+                logger.error(f"HuggingFace fallback error: {hf_e}")
+                reply_text, q_id = await self._get_fallback_reply(session_id, salesperson_message, persona_id)
+                self.history[session_id].append({"role": "assistant", "content": reply_text})
+                return reply_text, q_id
+
+    async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
+        transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
+        prompt = f"""
+You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
+
+Transcript:
+{transcript}
+
+YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
+
+Provide a structured JSON rating with:
+- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Closing).
+- strengths (array of strings, max 3): Specific sales competencies the SALESPERSON demonstrated well.
+- improvements (array of strings, max 3): Areas of the sales process where the SALESPERSON needs to improve.
+- detailed_feedback (object): A detailed JSON object. It MUST contain exactly these keys:
+  - "customer_engagement": How well the SALESPERSON built rapport and a comfortable atmosphere.
+  - "needs_assessment_and_pitch": How accurately the SALESPERSON assessed needs and tailored their pitch.
+  - "objection_handling_and_closing": How effectively the SALESPERSON handled objections and moved toward closing.
+  - "areas_for_improvement": Array of strings with specific, actionable coaching tips for the SALESPERSON.
+Respond ONLY with raw JSON.
+"""
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": "You are an expert automotive sales trainer evaluating a call. Output ONLY JSON."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            data = _safe_json_loads(response.choices[0].message.content)
+            return SessionRating(
+                overall_score=_extract_int(data.get("overall_score", 5)),
+                strengths=data.get("strengths", []),
+                improvements=data.get("improvements", []),
+                detailed_feedback=data.get("detailed_feedback", {})
+            )
+        except Exception as e:
+            logger.error(f"Groq Rating error: {e}. Falling back to HuggingFace.")
+            try:
+                hf = self._get_hf_fallback()
+                return await hf.rate_session(session_id, transcript_str)
+            except Exception as hf_e:
+                logger.error(f"HuggingFace fallback rating error: {hf_e}")
+                return SessionRating(overall_score=5, strengths=[], improvements=["API error"], detailed_feedback={"error": str(e)})
+
+    async def evaluate_reply(self, session_id: str, salesperson_message: str) -> ReplyEvaluation:
+        transcript = json.dumps(self.history.get(session_id, []))
+        prompt = f"Transcript:\n{transcript}\nLatest Reply:\n{salesperson_message}"
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": EVALUATE_REPLY_PROMPT},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            data = _safe_json_loads(response.choices[0].message.content)
+            return ReplyEvaluation(
+                empathy=_extract_int(data.get("empathy", 5)),
+                detail=_extract_int(data.get("detail", 5)),
+                tone_alignment=_extract_int(data.get("tone_alignment", 5)),
+                feedback=data.get("feedback", "No feedback provided.")
+            )
+        except Exception as e:
+            logger.error(f"Groq Evaluate error: {e}. Falling back to HuggingFace.")
+            try:
+                hf = self._get_hf_fallback()
+                return await hf.evaluate_reply(session_id, salesperson_message)
+            except Exception as hf_e:
+                logger.error(f"HuggingFace fallback evaluate error: {hf_e}")
+                return ReplyEvaluation(empathy=5, detail=5, tone_alignment=5, feedback=f"API error: {str(e)}")
+
+
 class OllamaProvider(AIProvider):
     def __init__(self):
         super().__init__()
@@ -839,6 +1000,8 @@ def get_ai_provider() -> AIProvider:
         return HuggingFaceProvider()
     elif provider_name == "ollama":
         return OllamaProvider()
+    elif provider_name == "groq":
+        return GroqProvider()
     else:
         return GeminiProvider()
 

@@ -1,0 +1,107 @@
+﻿venv\Scripts\python.exe : C:\Node Pr
+ojects\ReflexTraining\backend\venv\l
+ib\site-packages\google\api_core\_py
+thon_version_support.py:275: 
+FutureWarning: You are using a 
+Python version (3.10.9) which 
+Google will stop supporting in new 
+releases of google.api_core once it 
+reaches its end of life 
+(2026-10-04). Please upgrade to the 
+latest Python version, or at least 
+Python 3.11, to continue receiving 
+updates for google.api_core past 
+that date.
+At line:1 char:1
++ venv\Scripts\python.exe 
+test_providers.py > 
+test_results.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : 
+NotSpec    ified: (C:\Node 
+Project...past th    at 
+date.:String) [], RemoteExcept    
+ion
+    + FullyQualifiedErrorId : 
+NativeC    ommandError
+ 
+  warnings.warn(message, 
+FutureWarning)
+C:\Node Projects\ReflexTraining\back
+end\app\services\ai_service.py:304: 
+FutureWarning: 
+
+All support for the 
+`google.generativeai` package has 
+ended. It will no longer be 
+receiving 
+updates or bug fixes. Please switch 
+to the `google.genai` package as 
+soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/dep
+recated-generative-ai-python/blob/ma
+in/README.md
+
+  import google.generativeai as 
+genai
+Gemini start error: 404 
+models/gemini-1.5-flash is not 
+found for API version v1beta, or is 
+not supported for generateContent. 
+Call ListModels to see the list of 
+available models and their 
+supported methods.
+Gemini API error: 404 
+models/gemini-1.5-flash is not 
+found for API version v1beta, or is 
+not supported for generateContent. 
+Call ListModels to see the list of 
+available models and their 
+supported methods.
+2026-03-18 13:14:07.633 | INFO     
+| app.services.rag_service:_ensure_m
+odel:25 - Initializing fastembed 
+model...
+Current AI Provider in config: huggingface
+
+--- Testing Groq ---
+[Groq] Starting conversation...
+[Groq] Opening: Hi there, I'm so glad I stumbled upon this dealership. I'm looking for something bold, a car that turns heads - I'm not really sure what I'm in the market for yet, but I know I want a luxury vehicle.
+[Groq] Sending reply...
+[Groq] Reply: The X5 is a great choice - I love the sleek design, but I'm not sure if I want an SUV. Can I take a look at the X5, but also maybe some of the other models like the M4 or the 8 Series? I want to get a feel for the different styles.
+[Groq] Evaluating reply...
+[Groq] Evaluation: Empathy=4, Detail=0
+[Groq] SUCCESS
+
+--- Testing Gemini ---
+[Gemini] Starting conversation...
+[Gemini] Opening: Hi there! I'm looking for something bold, a car that really turns heads. What can you show me?
+[Gemini] Sending reply...
+
+Fetching 5 files:   0%|          | 
+0/5 [00:00<?, ?it/s]
+Fetching 5 files: 100%|##########| 
+5/5 [00:00<?, ?it/s]
+2026-03-18 13:14:08.406 | INFO     
+| app.services.rag_service:_ensure_m
+odel:28 - fastembed model 
+initialized.
+2026-03-18 13:14:08.406 | INFO     
+| app.services.rag_service:rebuild_i
+ndex:33 - Rebuilding FAISS index 
+for questions...
+RAG fallback error: 
+Gemini Evaluate error: 404 
+models/gemini-1.5-flash is not 
+found for API version v1beta, or is 
+not supported for generateContent. 
+Call ListModels to see the list of 
+available models and their 
+supported methods.
+[Gemini] Reply: Exterior colors available
+[Gemini] Evaluating reply...
+[Gemini] Evaluation: Empathy=5, Detail=5
+[Gemini] SUCCESS
