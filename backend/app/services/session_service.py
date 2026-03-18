@@ -162,48 +162,47 @@ async def handle_salesperson_response(
         summary_msg: Optional[SessionSummaryMessage] = None
         rating_msg: Optional[SessionRatingMessage] = None
 
-        if remaining > 0:
-            # 3. Get AI client response
-            client_msg_count = await RoleplayEvent.find(
-                RoleplayEvent.session_id == session_id,
-                RoleplayEvent.speaker == "client"
-            ).count()
-            
-            # Limit is 4 questions + 1 greeting = 5 messages total before wrap-up
-            is_final = client_msg_count >= 5
-            
-            # Fetch suggested questions from RAG
-            # search_questions now returns List[Tuple[text, id]]
-            rag_results = await rag_service.search_questions(transcript)
-            suggested_texts = [r[0] for r in rag_results]
+        # Determine if this should be the final message
+        client_msg_count = await RoleplayEvent.find(
+            RoleplayEvent.session_id == session_id,
+            RoleplayEvent.speaker == "client"
+        ).count()
+        
+        # Limit is 4 questions + 1 greeting = 5 messages total before wrap-up OR time is up
+        is_final = client_msg_count >= 5 or remaining <= 0
+        
+        # 3. Get AI client response
+        # Fetch suggested questions from RAG
+        rag_results = await rag_service.search_questions(transcript)
+        suggested_texts = [r[0] for r in rag_results]
 
-            client_text, client_q_id = await ai_provider_instance.reply(session_id, transcript, is_final=is_final, suggested_questions=suggested_texts)
-            logger.info("AI client reply generated | session_id={} | q_id={} | is_final={}", session_id, client_q_id, is_final)
-            client_step_id = salesperson_step_id + 1
+        client_text, client_q_id = await ai_provider_instance.reply(session_id, transcript, is_final=is_final, suggested_questions=suggested_texts)
+        logger.info("AI client reply generated | session_id={} | q_id={} | is_final={}", session_id, client_q_id, is_final)
+        client_step_id = salesperson_step_id + 1
 
-            client_event = RoleplayEvent(
-                id=str(uuid4()),
-                session_id=session_id,
-                step_id=client_step_id,
-                question_id=f"step_{client_step_id}",
-                speaker="client",
-                transcript=client_text,
-                features_json={"source_q_id": client_q_id} if client_q_id else None,
-            )
-            await client_event.insert()
-            next_client_msg = ClientUtteranceMessage(
-                type="client_utterance",
-                direction="sc",
-                session_id=session_id,
-                text=client_text,
-                time_remaining_seconds=remaining,
-            )
-            
-            if is_final:
-                summary_msg = await _finalize_and_summarize(session_id)
-        else:
-            # 4. Session time is up
+        client_event = RoleplayEvent(
+            id=str(uuid4()),
+            session_id=session_id,
+            step_id=client_step_id,
+            question_id=f"step_{client_step_id}",
+            speaker="client",
+            transcript=client_text,
+            features_json={"source_q_id": client_q_id} if client_q_id else None,
+        )
+        await client_event.insert()
+        
+        next_client_msg = ClientUtteranceMessage(
+            type="client_utterance",
+            direction="sc",
+            session_id=session_id,
+            text=client_text,
+            time_remaining_seconds=remaining,
+        )
+        
+        if is_final:
             summary_msg = await _finalize_and_summarize(session_id)
+
+        return score_msg, next_client_msg, summary_msg, rating_msg
 
         return score_msg, next_client_msg, summary_msg, rating_msg
 
@@ -246,6 +245,7 @@ async def generate_qualitative_rating(session_id: str) -> SessionRatingMessage:
         strengths=rating.strengths,
         improvements=rating.improvements,
         detailed_feedback=rating.detailed_feedback,
+        performance_debrief=rating.performance_debrief,
     )
 
 

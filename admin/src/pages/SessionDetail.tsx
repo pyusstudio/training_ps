@@ -12,10 +12,45 @@ import {
   ChevronRight, Brain, Zap, AlertTriangle, CheckCircle, 
   RotateCw, Terminal, ArrowRight, Star
 } from "lucide-react";
+ 
+const formatLabel = (label: string) => {
+  if (typeof label !== 'string') return label;
+  return label
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 type Props = {
   sessionId: string | null;
   onClose: () => void;
+};
+
+const MarkdownText = ({ content }: { content: string }) => {
+  if (!content) return null;
+  const lines = content.split('\n');
+  return (
+    <div className="space-y-4 text-slate-300 leading-relaxed">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('### ')) {
+          return <h4 key={i} className="text-violet-400 font-black uppercase tracking-widest text-[10px] mt-8 mb-4 border-b border-white/5 pb-2">{trimmed.replace(/^###\s+/, '')}</h4>;
+        }
+        if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+          const parts = trimmed.replace(/^[\*\-]\s+/, '').split('**');
+          return (
+            <div key={i} className="flex gap-3 items-start pl-4">
+              <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-2 shrink-0" />
+              <p className="text-sm">{parts.map((part, idx) => idx % 2 === 1 ? <strong key={idx} className="text-white font-bold">{part}</strong> : part)}</p>
+            </div>
+          );
+        }
+        if (trimmed === '') return <div key={i} className="h-2" />;
+        const parts = line.split('**');
+        return <p key={i} className="text-sm">{parts.map((part, idx) => idx % 2 === 1 ? <strong key={idx} className="text-white font-bold">{part}</strong> : part)}</p>;
+      })}
+    </div>
+  );
 };
 
 export function SessionDetailModal({ sessionId, onClose }: Props) {
@@ -175,7 +210,7 @@ export function SessionDetailModal({ sessionId, onClose }: Props) {
                                {detail.ai_rating_json.strengths.map((s: string, i: number) => (
                                  <li key={i} className="flex gap-4 group">
                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
-                                    <p className="text-sm font-medium text-slate-200 leading-relaxed">{s}</p>
+                                    <p className="text-sm font-medium text-slate-200 leading-relaxed">{formatLabel(s)}</p>
                                  </li>
                                ))}
                             </ul>
@@ -188,7 +223,7 @@ export function SessionDetailModal({ sessionId, onClose }: Props) {
                                {detail.ai_rating_json.improvements.map((s: string, i: number) => (
                                  <li key={i} className="flex gap-4 group">
                                     <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
-                                    <p className="text-sm font-medium text-slate-200 leading-relaxed">{s}</p>
+                                    <p className="text-sm font-medium text-slate-200 leading-relaxed">{formatLabel(s)}</p>
                                  </li>
                                ))}
                             </ul>
@@ -221,11 +256,20 @@ export function SessionDetailModal({ sessionId, onClose }: Props) {
                                 )}
                               </div>
                               
+                              {detail.ai_rating_json.performance_debrief && (
+                                <div className="pt-8 border-t border-white/5">
+                                  <h5 className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-4">Advanced Performance Debrief Narrative</h5>
+                                  <div className="bg-black/20 p-8 rounded-2xl border border-white/5">
+                                    <MarkdownText content={detail.ai_rating_json.performance_debrief} />
+                                  </div>
+                                </div>
+                              )}
+
                               {detail.ai_rating_json.detailed_feedback.areas_for_improvement && Array.isArray(detail.ai_rating_json.detailed_feedback.areas_for_improvement) && detail.ai_rating_json.detailed_feedback.areas_for_improvement.length > 0 && (
                                 <div className="pt-8 border-t border-white/5">
                                   <h5 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4">Tactical Coaching Roadmap</h5>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {detail.ai_rating_json.detailed_feedback.areas_for_improvement.map((point: string, i: number) => (
+                                    {Array.isArray(detail.ai_rating_json.detailed_feedback.areas_for_improvement) && detail.ai_rating_json.detailed_feedback.areas_for_improvement.map((point: string, i: number) => (
                                       <div key={i} className="flex items-center gap-3 bg-white/[0.02] p-4 rounded-2xl border border-white/5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                                         <p className="text-xs font-semibold text-slate-400">{point}</p>

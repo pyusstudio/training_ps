@@ -24,6 +24,14 @@ import {
 import { createTrainingSocket } from "./lib/ws";
 import { PersonaSelector, PersonaId } from "./components/PersonaSelector";
 import { useVoice } from "./lib/useVoice";
+ 
+const formatLabel = (label: string) => {
+  if (typeof label !== 'string') return label;
+  return label
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 type Message = {
   id: string;
@@ -37,8 +45,8 @@ type Message = {
 
 type SessionRating = {
   overall_score: number;
-  strengths: string[];
-  improvements: string[];
+  strengths: (string | { description: string; score?: number })[];
+  improvements: (string | { description: string; score?: number })[];
   detailed_feedback: {
     customer_engagement?: string;
     needs_assessment_and_pitch?: string;
@@ -46,6 +54,34 @@ type SessionRating = {
     areas_for_improvement?: string[];
     error?: string;
   };
+  performance_debrief?: string;
+};
+
+const MarkdownText = ({ content }: { content: string }) => {
+  if (!content) return null;
+  const lines = content.split('\n');
+  return (
+    <div className="space-y-4 text-slate-300 leading-relaxed">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('### ')) {
+          return <h4 key={i} className="text-violet-400 font-black uppercase tracking-widest text-[11px] mt-8 mb-4 border-b border-white/10 pb-2">{trimmed.replace(/^###\s+/, '')}</h4>;
+        }
+        if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+          const parts = trimmed.replace(/^[\*\-]\s+/, '').split('**');
+          return (
+            <div key={i} className="flex gap-3 items-start pl-4">
+              <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-2 shrink-0" />
+              <p className="text-sm">{parts.map((part, idx) => idx % 2 === 1 ? <strong key={idx} className="text-white font-bold">{part}</strong> : part)}</p>
+            </div>
+          );
+        }
+        if (trimmed === '') return <div key={i} className="h-2" />;
+        const parts = line.split('**');
+        return <p key={i} className="text-sm">{parts.map((part, idx) => idx % 2 === 1 ? <strong key={idx} className="text-white font-bold">{part}</strong> : part)}</p>;
+      })}
+    </div>
+  );
 };
 
 type SummaryMetrics = {
@@ -171,6 +207,7 @@ export function TrainingApp() {
               strengths: data.strengths,
               improvements: data.improvements,
               detailed_feedback: data.detailed_feedback,
+              performance_debrief: data.performance_debrief,
             });
             setSessionStatus("idle");
             setSessionId(null);
@@ -570,14 +607,28 @@ export function TrainingApp() {
                        Elite Performance
                     </h4>
                     <div className="space-y-5">
-                      {rating.strengths.map((s, i) => (
-                        <div key={i} className="flex gap-5 group">
-                          <div className="w-1.5 h-12 bg-white/5 rounded-full overflow-hidden shrink-0 mt-1">
-                            <div className="w-full h-1/2 bg-emerald-500 group-hover:h-full transition-all duration-500" />
+                      {rating.strengths.map((s, i) => {
+                        const description = typeof s === 'string' ? s : s.description;
+                        const score = typeof s === 'string' ? null : s.score;
+                        return (
+                          <div key={i} className="flex gap-5 group">
+                            <div className="w-1.5 h-12 bg-white/5 rounded-full overflow-hidden shrink-0 mt-1">
+                              <div 
+                                className="w-full bg-emerald-500 group-hover:h-full transition-all duration-500" 
+                                style={{ height: score != null ? `${score * 10}%` : '50%' }}
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <p className="text-slate-300 font-medium leading-relaxed">{formatLabel(description)}</p>
+                              {score != null && (
+                                <span className="text-[10px] font-black text-emerald-500/50 uppercase tracking-widest mt-1">
+                                  Impact: {score}/10
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-slate-300 font-medium leading-relaxed">{s}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -586,14 +637,28 @@ export function TrainingApp() {
                        Strategic Friction
                     </h4>
                     <div className="space-y-5">
-                      {rating.improvements.map((s, i) => (
-                        <div key={i} className="flex gap-5 group">
-                          <div className="w-1.5 h-12 bg-white/5 rounded-full overflow-hidden shrink-0 mt-1">
-                            <div className="w-full h-1/4 bg-amber-500 group-hover:h-full transition-all duration-500" />
+                      {rating.improvements.map((s, i) => {
+                        const description = typeof s === 'string' ? s : s.description;
+                        const score = typeof s === 'string' ? null : s.score;
+                        return (
+                          <div key={i} className="flex gap-5 group">
+                            <div className="w-1.5 h-12 bg-white/5 rounded-full overflow-hidden shrink-0 mt-1">
+                              <div 
+                                className="w-full bg-amber-500 group-hover:h-full transition-all duration-500" 
+                                style={{ height: score != null ? `${score * 10}%` : '25%' }}
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <p className="text-slate-300 font-medium leading-relaxed">{formatLabel(description)}</p>
+                              {score != null && (
+                                <span className="text-[10px] font-black text-amber-500/50 uppercase tracking-widest mt-1">
+                                  Severity: {score}/10
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-slate-300 font-medium leading-relaxed">{s}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -602,7 +667,7 @@ export function TrainingApp() {
                   <div className="relative z-10 space-y-8">
                      <h4 className="text-xs font-black uppercase tracking-[0.4em] text-slate-500 mb-10 text-center italic">Advanced Performance Debrief</h4>
                      
-                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                         <div className="space-y-8">
                            <div>
                              <h5 className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-3 flex items-center gap-2">Engagement Control</h5>
@@ -621,17 +686,25 @@ export function TrainingApp() {
                              <p className="text-sm text-slate-300 leading-relaxed font-medium">{rating.detailed_feedback.objection_handling_and_closing}</p>
                            </div>
                         </div>
-                        <div>
-                           <div className="bg-white/5 p-8 rounded-[2rem] border border-white/5">
-                              <h5 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-6">Neural Takeaways</h5>
-                              <ul className="space-y-4">
-                                {rating.detailed_feedback.areas_for_improvement?.map((item, idx) => (
-                                  <li key={idx} className="flex gap-4 text-slate-300 font-medium text-sm italic opacity-80 decoration-violet-500/50 underline-offset-4 underline">
-                                    {item}
-                                  </li>
-                                ))}
-                              </ul>
-                           </div>
+                     </div>
+
+                     {rating.performance_debrief && (
+                       <div className="mt-12 bg-[#0A0D1E] p-10 rounded-[3rem] border border-violet-500/20 shadow-[inset_0_0_50px_rgba(124,58,237,0.05)]">
+                         <h5 className="text-[12px] font-black text-violet-400 uppercase tracking-[0.4em] mb-10 text-center">Narrative Analysis & Coaching Roadmap</h5>
+                         <MarkdownText content={rating.performance_debrief} />
+                       </div>
+                     )}
+
+                     <div className="mt-8">
+                        <div className="bg-white/5 p-8 rounded-[2rem] border border-white/5">
+                           <h5 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-6">Neural Takeaways</h5>
+                           <ul className="space-y-4">
+                               {Array.isArray(rating.detailed_feedback.areas_for_improvement) && rating.detailed_feedback.areas_for_improvement.map((item, idx) => (
+                                 <li key={idx} className="flex gap-4 text-slate-300 font-medium text-sm italic opacity-80 decoration-violet-500/50 underline-offset-4 underline">
+                                   {item}
+                                 </li>
+                               ))}
+                           </ul>
                         </div>
                      </div>
 

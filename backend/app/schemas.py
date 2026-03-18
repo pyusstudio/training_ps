@@ -77,9 +77,10 @@ class ClientUtteranceMessage(BaseMessage):
 class SessionRatingMessage(BaseMessage):
     type: Literal["session_rating"]
     overall_score: int
-    strengths: list[str]
-    improvements: list[str]
+    strengths: list[Any]
+    improvements: list[Any]
     detailed_feedback: Dict[str, Any]
+    performance_debrief: str
 
 
 class SessionSummaryMessage(BaseMessage):
