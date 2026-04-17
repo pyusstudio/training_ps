@@ -164,14 +164,16 @@ export function SessionDetailModal({ sessionId, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-3">
-               <button 
-                onClick={runRating}
-                disabled={ratingLoading || !detail}
-                className="flex items-center gap-2.5 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-30 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-               >
-                 {ratingLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
-                 <span>{detail?.ai_rating_json ? "Recalculate Review" : "Generate Review"}</span>
-               </button>
+               {!loading && detail && (
+                 <button 
+                  onClick={runRating}
+                  disabled={ratingLoading}
+                  className="flex items-center gap-2.5 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-30 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                 >
+                   {ratingLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                   <span>{detail.ai_rating_json ? "Recalculate Review" : "Generate Review"}</span>
+                 </button>
+               )}
             </div>
           </div>
 
