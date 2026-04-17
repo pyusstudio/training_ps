@@ -120,6 +120,31 @@ class ReplyEvaluation(BaseModel):
     tone_alignment: int
     feedback: str
 
+RATE_SESSION_PROMPT_TEMPLATE = """
+You are an expert Automotive Sales Trainer evaluating a roleplay transcript between a SALESPERSON (the trainee) and an AI CUSTOMER (context).
+
+YOUR TASK: Evaluate ONLY the SALESPERSON's performance. Use the AI CUSTOMER's replies ONLY as context to understand how the salesperson performed.
+
+Transcript:
+{transcript}
+
+SCORING RUBRIC (overall_score 1-10):
+- 9-10: Exceptional. Probed customer needs deeply, tailored pitch perfectly, handled objections with confidence, and closed effectively.
+- 7-8: Strong. Addressed most needs, gave relevant info, but missed a minor objection or had a slightly weak close.
+- 5-6: Adequate. Provided generic info, limited probing, hesitant or weak closing attempt.
+- 3-4: Below Average. Reactive, gave minimal info, ignored objections or provided incorrect data.
+- 1-2: Poor. Off-topic, dismissive, or provided no useful information.
+
+Provide a structured JSON rating with:
+- overall_score (integer 1-10): Based on the rubric above.
+- strengths (list of strings, max 3): Key sales competencies demonstrated well.
+- improvements (list of strings, max 3): Areas for development.
+- detailed_feedback (object): Keys: "customer_engagement", "needs_assessment_and_pitch", "objection_handling_and_closing", "areas_for_improvement" (list).
+- performance_debrief (string): A professional "Advanced Performance Debrief" (min 200 words) with Markdown headers (### 1. Executive Summary, ### 2. Critical Moments Analysis, ### 3. Behavioral Observations, ### 4. Coaching Roadmap).
+
+Respond ONLY with valid JSON.
+"""
+
 class AIProvider(abc.ABC):
     def __init__(self):
         self.history: Dict[str, List[Dict[str, str]]] = {}
@@ -293,29 +318,13 @@ class GeminiProvider(AIProvider):
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
-        prompt = f"""
-You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
-
-Transcript:
-{transcript}
-
-YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
-
-Provide a structured JSON rating with:
-- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Overcoming Objections, Closing).
-- strengths (list of strings, max 3): Specific sales competencies (as human-readable labels, e.g., "Strong Presentation") the SALESPERSON demonstrated well.
-- improvements (list of strings, max 3): Specific areas (as human-readable labels, e.g., "Better Objection Handling") where the SALESPERSON needs development.
-- detailed_feedback (object): A detailed JSON object with exactly these keys: "customer_engagement", "needs_assessment_and_pitch", "objection_handling_and_closing", "areas_for_improvement".
-- performance_debrief (string): A comprehensive, professional "Advanced Performance Debrief". This MUST be a detailed narrative (at least 200 words) structured with Markdown headers:
-  ### 1. Executive Summary
-  ### 2. Critical Moments Analysis
-  ### 3. Behavioral & Psychological Observations
-  ### 4. Next-Level Coaching Roadmap
-
-Respond ONLY with valid JSON.
-"""
+        prompt = RATE_SESSION_PROMPT_TEMPLATE.format(transcript=transcript)
         try:
-            response = await asyncio.to_thread(self.model.generate_content, prompt)
+            response = await asyncio.to_thread(
+                self.model.generate_content, 
+                prompt,
+                generation_config={"temperature": 0}
+            )
             text = response.text
             text = _strip_markdown_fences(text)
             data = _safe_json_loads(text)
@@ -413,21 +422,7 @@ class OpenAIProvider(AIProvider):
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
-        prompt = f"""
-You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
-
-Transcript:
-{transcript}
-
-YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
-
-Provide a structured JSON rating with:
-- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Closing).
-- strengths (array of strings, max 3): Specific sales competencies (as human-readable labels) the SALESPERSON demonstrated well.
-- improvements (array of strings, max 3): Areas of the sales process (as human-readable labels) where the SALESPERSON needs to improve.
-- detailed_feedback (object): A detailed JSON object with these keys: "customer_engagement", "needs_assessment_and_pitch", "objection_handling_and_closing", "areas_for_improvement".
-- performance_debrief (string): A comprehensive, professional "Advanced Performance Debrief" (min 200 words) using Markdown headers: ### 1. Executive Summary, ### 2. Critical Moments Analysis, ### 3. Behavioral Observations, ### 4. Coaching Roadmap.
-"""
+        prompt = RATE_SESSION_PROMPT_TEMPLATE.format(transcript=transcript)
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -435,7 +430,8 @@ Provide a structured JSON rating with:
                 messages=[
                     {"role": "system", "content": "You are an expert automotive sales trainer evaluating a call. Output ONLY JSON."},
                     {"role": "user", "content": prompt}
-                ]
+                ],
+                temperature=0
             )
             data = _safe_json_loads(response.choices[0].message.content)
             detailed_fb = data.get("detailed_feedback", {})
@@ -546,23 +542,7 @@ class HuggingFaceProvider(AIProvider):
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
-        prompt = f"""
-You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
-
-Transcript:
-{transcript}
-
-YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
-
-Provide a structured JSON rating with:
-- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Closing).
-- strengths (array of strings, max 3): Specific sales competencies (as human-readable labels) the SALESPERSON demonstrated well.
-- improvements (array of strings, max 3): Areas of the sales process (as human-readable labels) where the SALESPERSON needs to improve.
-- detailed_feedback (object): Keys: "customer_engagement", "needs_assessment_and_pitch", "objection_handling_and_closing", "areas_for_improvement".
-- performance_debrief (string): A detailed professional "Advanced Performance Debrief" (min 200 words) using Markdown headers (### 1. Executive Summary, etc.).
-
-Respond ONLY with a raw JSON object. Do not use markdown backticks or explanations.
-"""
+        prompt = RATE_SESSION_PROMPT_TEMPLATE.format(transcript=transcript)
         try:
             response = await self.client.chat_completion(
                 model=self.model,
@@ -570,7 +550,8 @@ Respond ONLY with a raw JSON object. Do not use markdown backticks or explanatio
                     {"role": "system", "content": "You are an expert automotive sales trainer evaluating a call. Output ONLY raw JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=600
+                max_tokens=600,
+                temperature=0
             )
             if hasattr(response, 'choices') and response.choices:
                 text = response.choices[0].message.content.strip()
@@ -713,23 +694,7 @@ class GroqProvider(AIProvider):
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
-        prompt = f"""
-You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
-
-Transcript:
-{transcript}
-
-YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
-
-Provide a structured JSON rating with:
-- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Closing).
-- strengths (array of strings, max 3): Specific sales competencies (as human-readable labels) the SALESPERSON demonstrated well.
-- improvements (array of strings, max 3): Areas of the sales process (as human-readable labels) where the SALESPERSON needs to improve.
-- detailed_feedback (object): Keys: "customer_engagement", "needs_assessment_and_pitch", "objection_handling_and_closing", "areas_for_improvement".
-- performance_debrief (string): A comprehensive professional "Advanced Performance Debrief" (min 200 words) with Markdown headers (### 1. Executive Summary, etc.).
-
-Respond ONLY with raw JSON.
-"""
+        prompt = RATE_SESSION_PROMPT_TEMPLATE.format(transcript=transcript)
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -737,7 +702,8 @@ Respond ONLY with raw JSON.
                 messages=[
                     {"role": "system", "content": "You are an expert automotive sales trainer evaluating a call. Output ONLY JSON."},
                     {"role": "user", "content": prompt}
-                ]
+                ],
+                temperature=0
             )
             data = _safe_json_loads(response.choices[0].message.content)
             detailed_fb = data.get("detailed_feedback", {})
@@ -856,23 +822,7 @@ class OllamaProvider(AIProvider):
 
     async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
-        prompt = f"""
-You are an expert Automotive Sales Trainer. Below is a roleplay transcript between a SALESPERSON (the trainee being evaluated) and an AI CUSTOMER (used only as context).
-
-Transcript:
-{transcript}
-
-YOUR TASK: Evaluate ONLY the SALESPERSON's messages. Use the AI CUSTOMER's replies purely as context to understand how the salesperson performed — do NOT rate the customer's responses.
-
-Provide a structured JSON rating with:
-- overall_score (integer 1-10): Rate only the salesperson's overall performance (Needs Assessment, Presentation, Closing).
-- strengths (array of strings, max 3): Specific sales competencies (as human-readable labels) the SALESPERSON demonstrated well.
-- improvements (array of strings, max 3): Areas of the sales process (as human-readable labels) where the SALESPERSON needs to improve.
-- detailed_feedback (object): Keys: "customer_engagement", "needs_assessment_and_pitch", "objection_handling_and_closing", "areas_for_improvement".
-- performance_debrief (string): A comprehensive professional "Advanced Performance Debrief" (min 200 words) with Markdown headers (### 1. Executive Summary, etc.).
-
-Respond ONLY with a raw JSON object.
-"""
+        prompt = RATE_SESSION_PROMPT_TEMPLATE.format(transcript=transcript)
         try:
             import httpx
             async with httpx.AsyncClient() as client:
@@ -885,7 +835,8 @@ Respond ONLY with a raw JSON object.
                             {"role": "user", "content": prompt}
                         ], 
                         "stream": False,
-                        "format": "json" # Ollama supports strict JSON mode
+                        "format": "json", # Ollama supports strict JSON mode
+                        "options": {"temperature": 0}
                     },
                     timeout=60.0 # Ratings take longer
                 )

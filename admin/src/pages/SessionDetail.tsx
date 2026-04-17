@@ -108,6 +108,13 @@ export function SessionDetailModal({ sessionId, onClose }: Props) {
 
   const runRating = async () => {
     if (!sessionId || !token) return;
+    
+    // Safety check if rating already exists
+    if (detail?.ai_rating_json) {
+      const ok = window.confirm("This will replace the existing review with a new AI analysis. Are you sure?");
+      if (!ok) return;
+    }
+
     setRatingLoading(true);
     try {
       const res = await generateSessionRating(token, sessionId);
