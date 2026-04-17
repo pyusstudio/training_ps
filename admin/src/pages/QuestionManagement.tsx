@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Plus, Search, Edit2, Trash2, CheckCircle, XCircle, 
   Terminal, Database, Loader2, ChevronLeft, ChevronRight,
-  MoreVertical, Save, X, Hash, MessageSquare, Tag
+  MoreVertical, Save, X, Hash, MessageSquare, Tag, Info
 } from "lucide-react";
 
 export default function QuestionManagement() {
@@ -122,7 +122,19 @@ export default function QuestionManagement() {
         </button>
       </div>
 
+      {/* Info Note about RAG */}
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex gap-3 shadow-sm">
+        <Info className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
+        <div>
+          <h3 className="text-sm font-bold text-indigo-900">How these questions are used</h3>
+          <p className="text-xs text-indigo-700 mt-1 leading-relaxed">
+            The questions you add here become part of the AI's knowledge base. During a live training session, the AI listens to what the trainee says and automatically picks the most relevant questions or objections from this library to challenge them and keep the conversation natural.
+          </p>
+        </div>
+      </div>
+
       <AnimatePresence>
+        {isAdding && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -162,6 +174,7 @@ export default function QuestionManagement() {
               </div>
             </div>
           </motion.div>
+        )}
       </AnimatePresence>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -175,7 +188,11 @@ export default function QuestionManagement() {
               layout
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
+              transition={{ 
+                opacity: { delay: idx * 0.05 }, 
+                y: { delay: idx * 0.05 }, 
+                layout: { type: "spring", bounce: 0, duration: 0.4 } 
+              }}
               key={q.id}
               className={`group bg-white border ${editingId === q.id ? 'border-indigo-500' : 'border-slate-200/60'} rounded-xl p-6 transition-all hover:border-indigo-200 relative overflow-hidden shadow-sm`}
             >
