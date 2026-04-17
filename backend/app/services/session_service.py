@@ -35,14 +35,16 @@ async def _get_session_lock(session_id: str) -> asyncio.Lock:
 
 async def cleanup_session_lock(session_id: str) -> None:
     async with _SESSION_LOCKS_LOCK:
-        _SESSION_LOCKS.pop(session_id, None)
+        lock = _SESSION_LOCKS.get(session_id)
+        if lock and not lock.locked():
+            _SESSION_LOCKS.pop(session_id, None)
+
     ai_provider_instance.cleanup_session(session_id)
 
 
 async def _create_db_session(
-    source: str, user_id: Optional[str], scenario: Optional[str], persona_id: str, first_text: str, q_id: Optional[str] = None
+    session_id: str, source: str, user_id: Optional[str], scenario: Optional[str], persona_id: str, first_text: str, q_id: Optional[str] = None
 ) -> DbSession:
-    session_id = str(uuid4())
     db_session = DbSession(
         id=session_id,
         user_id=user_id,
@@ -70,15 +72,13 @@ async def _create_db_session(
 async def start_session(
     source: str, user_id: Optional[str], scenario: Optional[str], persona_id: str = "elena"
 ) -> Tuple[SessionStartedMessage, ClientUtteranceMessage]:
+    session_id = str(uuid4())
+    
     # Use AI to generate opening line
-    first_text, q_id = await ai_provider_instance.start_conversation("temp_id", persona_id)
+    first_text, q_id = await ai_provider_instance.start_conversation(session_id, persona_id)
     
-    db_session = await _create_db_session(source=source, user_id=user_id, scenario=scenario, persona_id=persona_id, first_text=first_text, q_id=q_id)
-    session_id = db_session.id
+    db_session = await _create_db_session(session_id=session_id, source=source, user_id=user_id, scenario=scenario, persona_id=persona_id, first_text=first_text, q_id=q_id)
     logger.info("Started session {} | q_id={}", session_id, q_id)
-    
-    # Move history to actual session ID
-    ai_provider_instance.move_session("temp_id", session_id)
 
     started = SessionStartedMessage(
         type="session_started",
@@ -225,7 +225,9 @@ async def _finalize_and_summarize(session_id: str) -> SessionSummaryMessage:
 
 
 async def finalize_session(session_id: str) -> SessionSummaryMessage:
-    return await _finalize_and_summarize(session_id)
+    lock = await _get_session_lock(session_id)
+    async with lock:
+        return await _finalize_and_summarize(session_id)
 
 
 async def generate_qualitative_rating(session_id: str) -> SessionRatingMessage:

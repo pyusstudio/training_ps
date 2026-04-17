@@ -21,6 +21,9 @@ from .schemas import (
 from .services import session_service
 from .services.scoring import scoring_service
 from .services.auth_service import get_user_from_token
+from .config import get_settings
+
+_SETTINGS = get_settings()
 
 
 router = APIRouter()
@@ -32,7 +35,7 @@ class Connection:
         self.role = role
         self.user_id = user_id
         self.session_id: str | None = None
-        self.outbound_queue: asyncio.Queue[BaseMessage] = asyncio.Queue()
+        self.outbound_queue: asyncio.Queue[BaseMessage] = asyncio.Queue(maxsize=_SETTINGS.ws_queue_max_size)
 
 
 class ConnectionManager:
@@ -61,7 +64,9 @@ class ConnectionManager:
             ]
         for conn in targets:
             try:
-                await conn.outbound_queue.put(message)
+                conn.outbound_queue.put_nowait(message)
+            except asyncio.QueueFull:
+                logger.warning(f"Outbound queue full for connection role={conn.role}, dropping message")
             except Exception as e:
                 logger.warning(f"Error broadcasting to connection: {e}")
 
@@ -185,7 +190,7 @@ async def _handle_session_start(conn: Connection, data: dict) -> None:
     try:
         msg = SessionStartMessage.model_validate(data)
     except Exception as exc:
-        logger.exception("Invalid session_start message: {}", exc)
+        logger.warning("Invalid session_start message: {}", exc)
         error = ErrorMessage(
             type="error",
             direction="sc",
@@ -222,7 +227,7 @@ async def _handle_roleplay_event(conn: Connection, data: dict) -> None:
     try:
         msg = RoleplayEventMessage.model_validate(data)
     except Exception as exc:
-        logger.exception("Invalid roleplay_event message: {}", exc)
+        logger.warning("Invalid roleplay_event message: {}", exc)
         error = ErrorMessage(
             type="error",
             direction="sc",

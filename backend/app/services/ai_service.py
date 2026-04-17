@@ -41,7 +41,7 @@ def _safe_json_loads(text: str) -> dict:
         try:
             return json.loads(clean_text, strict=False)
         except json.JSONDecodeError as e2:
-            logger.error(f"Failed to parse JSON even after cleaning: {e2}")
+            logger.error(f"Failed to parse JSON even after cleaning: {e2}. Raw text: {text}")
             return {}
 
 def _extract_int(val, default: int = 5) -> int:
@@ -140,9 +140,9 @@ Provide a structured JSON rating with:
 - strengths (list of strings, max 3): Key sales competencies demonstrated well.
 - improvements (list of strings, max 3): Areas for development.
 - detailed_feedback (object): Keys: "customer_engagement", "needs_assessment_and_pitch", "objection_handling_and_closing", "areas_for_improvement" (list).
-- performance_debrief (string): A professional "Advanced Performance Debrief" (min 200 words) with Markdown headers (### 1. Executive Summary, ### 2. Critical Moments Analysis, ### 3. Behavioral Observations, ### 4. Coaching Roadmap).
+- performance_debrief (string): A professional "Advanced Performance Debrief" (targeted 150-200 words) with Markdown headers (### 1. Executive Summary, ### 2. Critical Moments Analysis, ### 3. Behavioral Observations, ### 4. Coaching Roadmap).
 
-Respond ONLY with valid JSON.
+Respond ONLY with valid JSON. Ensure 'performance_debrief' is a non-empty string.
 """
 
 class AIProvider(abc.ABC):
@@ -242,21 +242,7 @@ class AIProvider(abc.ABC):
     async def reply(self, session_id: str, salesperson_message: str, is_final: bool = False, suggested_questions: List[str] = None) -> tuple[str, Optional[str]]:
         """Get the client's next response as (text, question_id)."""
         pass
-        """Get the client's next response."""
-        pass
 
-    @abc.abstractmethod
-    async def rate_session(self, session_id: str, transcript_str: Optional[str] = None) -> SessionRating:
-        """Return a structured rating of the session."""
-        pass
-
-    @abc.abstractmethod
-    async def evaluate_reply(self, session_id: str, salesperson_message: str) -> ReplyEvaluation:
-        """Evaluate a single reply from the salesperson."""
-        pass
-
-    def cleanup_session(self, session_id: str):
-        self.history.pop(session_id, None)
 
 
 class GeminiProvider(AIProvider):
@@ -278,7 +264,10 @@ class GeminiProvider(AIProvider):
         try:
             messages = [{"role": msg["role"] if msg["role"] != "system" else "user", "parts": [msg["content"]]} for msg in self.history[session_id]]
             chat = self.model.start_chat(history=messages[:-1])
-            response = await asyncio.to_thread(chat.send_message, prompt)
+            response = await asyncio.wait_for(
+                asyncio.to_thread(chat.send_message, prompt),
+                timeout=_SETTINGS.llm_reply_timeout_seconds
+            )
             reply = response.text
             self.history[session_id].append({"role": "model", "content": reply})
             return reply, None
@@ -306,7 +295,10 @@ class GeminiProvider(AIProvider):
             messages = await self._get_optimized_messages(session_id)
             messages_to_send = [{"role": msg["role"] if msg["role"] != "system" else "user", "parts": [msg["content"]]} for msg in messages]
             chat = self.model.start_chat(history=messages_to_send)
-            response = await asyncio.to_thread(chat.send_message, prompt)
+            response = await asyncio.wait_for(
+                asyncio.to_thread(chat.send_message, prompt),
+                timeout=_SETTINGS.llm_reply_timeout_seconds
+            )
             reply = response.text
             self.history[session_id].append({"role": "model", "content": reply})
             return reply, None
@@ -320,10 +312,13 @@ class GeminiProvider(AIProvider):
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
         prompt = RATE_SESSION_PROMPT_TEMPLATE.format(transcript=transcript)
         try:
-            response = await asyncio.to_thread(
-                self.model.generate_content, 
-                prompt,
-                generation_config={"temperature": 0}
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.model.generate_content, 
+                    prompt,
+                    generation_config={"temperature": 0, "max_output_tokens": 2000}
+                ),
+                timeout=_SETTINGS.llm_rate_timeout_seconds
             )
             text = response.text
             text = _strip_markdown_fences(text)
@@ -337,7 +332,7 @@ class GeminiProvider(AIProvider):
                 strengths=_extract_list(data.get("strengths", [])),
                 improvements=_extract_list(data.get("improvements", [])),
                 detailed_feedback=detailed_fb,
-                performance_debrief=data.get("performance_debrief", "Debrief not available.")
+                performance_debrief=data.get("performance_debrief") or "Debrief not available."
             )
         except Exception as e:
             logger.error(f"Gemini Rating error: {e}")
@@ -347,7 +342,10 @@ class GeminiProvider(AIProvider):
         transcript = json.dumps(self.history.get(session_id, []))
         prompt = f"{EVALUATE_REPLY_PROMPT}\nConversation Transcript:\n{transcript}\nSalesperson's latest message:\n{salesperson_message}"
         try:
-            response = await asyncio.to_thread(self.model.generate_content, prompt)
+            response = await asyncio.wait_for(
+                asyncio.to_thread(self.model.generate_content, prompt),
+                timeout=_SETTINGS.llm_reply_timeout_seconds
+            )
             text = _strip_markdown_fences(response.text)
             data = _safe_json_loads(text)
             return ReplyEvaluation(
@@ -380,7 +378,8 @@ class OpenAIProvider(AIProvider):
                 model=self.model,
                 messages=messages,
                 temperature=0.7,
-                max_tokens=150
+                max_tokens=150,
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             reply = response.choices[0].message.content
             self.history[session_id].append({"role": "assistant", "content": reply})
@@ -409,7 +408,8 @@ class OpenAIProvider(AIProvider):
                 model=self.model,
                 messages=messages,
                 temperature=0.7,
-                max_tokens=150
+                max_tokens=150,
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             reply = response.choices[0].message.content
             self.history[session_id].append({"role": "assistant", "content": reply})
@@ -431,7 +431,9 @@ class OpenAIProvider(AIProvider):
                     {"role": "system", "content": "You are an expert automotive sales trainer evaluating a call. Output ONLY JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0
+                temperature=0,
+                max_tokens=2000,
+                timeout=_SETTINGS.llm_rate_timeout_seconds
             )
             data = _safe_json_loads(response.choices[0].message.content)
             detailed_fb = data.get("detailed_feedback", {})
@@ -443,7 +445,7 @@ class OpenAIProvider(AIProvider):
                 strengths=_extract_list(data.get("strengths", [])),
                 improvements=_extract_list(data.get("improvements", [])),
                 detailed_feedback=detailed_fb,
-                performance_debrief=data.get("performance_debrief", "Debrief not available.")
+                performance_debrief=data.get("performance_debrief") or "Debrief not available."
             )
         except Exception as e:
             logger.error(f"OpenAI Rating error: {e}")
@@ -459,7 +461,8 @@ class OpenAIProvider(AIProvider):
                 messages=[
                     {"role": "system", "content": EVALUATE_REPLY_PROMPT},
                     {"role": "user", "content": prompt}
-                ]
+                ],
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             data = _safe_json_loads(response.choices[0].message.content)
             return ReplyEvaluation(
@@ -488,11 +491,14 @@ class HuggingFaceProvider(AIProvider):
             messages = self.history[session_id].copy()
             messages.append({"role": "user", "content": "Act as the customer. Look at the context and initiate the conversation naturally. You can start with a general greeting or ask to see cars/SUVs without immediately naming the model. Keep your response to 1-2 realistic sentences."})
             
-            response = await self.client.chat_completion(
-                model=self.model,
-                messages=messages,
-                max_tokens=150,
-                temperature=0.7
+            response = await asyncio.wait_for(
+                self.client.chat_completion(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=150,
+                    temperature=0.7
+                ),
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             if hasattr(response, 'choices') and response.choices:
                 reply = response.choices[0].message.content
@@ -521,11 +527,14 @@ class HuggingFaceProvider(AIProvider):
         
         try:
             messages_to_send = await self._get_optimized_messages(session_id, max_turns=4)
-            response = await self.client.chat_completion(
-                model=self.model,
-                messages=messages_to_send,
-                max_tokens=150,
-                temperature=0.7
+            response = await asyncio.wait_for(
+                self.client.chat_completion(
+                    model=self.model,
+                    messages=messages_to_send,
+                    max_tokens=150,
+                    temperature=0.7
+                ),
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             if hasattr(response, 'choices') and response.choices:
                 reply = response.choices[0].message.content
@@ -544,14 +553,17 @@ class HuggingFaceProvider(AIProvider):
         transcript = transcript_str if transcript_str else json.dumps(self.history.get(session_id, []))
         prompt = RATE_SESSION_PROMPT_TEMPLATE.format(transcript=transcript)
         try:
-            response = await self.client.chat_completion(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert automotive sales trainer evaluating a call. Output ONLY raw JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=600,
-                temperature=0
+            response = await asyncio.wait_for(
+                self.client.chat_completion(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are an expert automotive sales trainer evaluating a call. Output ONLY raw JSON."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=2000,
+                    temperature=0.01
+                ),
+                timeout=_SETTINGS.llm_rate_timeout_seconds
             )
             if hasattr(response, 'choices') and response.choices:
                 text = response.choices[0].message.content.strip()
@@ -569,7 +581,7 @@ class HuggingFaceProvider(AIProvider):
                 strengths=_extract_list(data.get("strengths", [])),
                 improvements=_extract_list(data.get("improvements", [])),
                 detailed_feedback=detailed_fb,
-                performance_debrief=data.get("performance_debrief", "Debrief not available.")
+                performance_debrief=data.get("performance_debrief") or "Debrief not available."
             )
         except Exception as e:
             import traceback
@@ -580,13 +592,16 @@ class HuggingFaceProvider(AIProvider):
         transcript = json.dumps(self.history.get(session_id, []))
         prompt = f"Transcript:\n{transcript}\nLatest Reply:\n{salesperson_message}"
         try:
-            response = await self.client.chat_completion(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": EVALUATE_REPLY_PROMPT},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=200
+            response = await asyncio.wait_for(
+                self.client.chat_completion(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": EVALUATE_REPLY_PROMPT},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=200
+                ),
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             if hasattr(response, 'choices') and response.choices:
                 text = _strip_markdown_fences(response.choices[0].message.content.strip())
@@ -634,7 +649,8 @@ class GroqProvider(AIProvider):
                 model=self.model,
                 messages=messages,
                 temperature=0.7,
-                max_tokens=150
+                max_tokens=150,
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             reply = response.choices[0].message.content
             self.history[session_id].append({"role": "assistant", "content": reply})
@@ -671,7 +687,8 @@ class GroqProvider(AIProvider):
                 model=self.model,
                 messages=messages,
                 temperature=0.7,
-                max_tokens=150
+                max_tokens=150,
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             reply = response.choices[0].message.content
             self.history[session_id].append({"role": "assistant", "content": reply})
@@ -703,7 +720,9 @@ class GroqProvider(AIProvider):
                     {"role": "system", "content": "You are an expert automotive sales trainer evaluating a call. Output ONLY JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0
+                temperature=0,
+                max_tokens=2000,
+                timeout=_SETTINGS.llm_rate_timeout_seconds
             )
             data = _safe_json_loads(response.choices[0].message.content)
             detailed_fb = data.get("detailed_feedback", {})
@@ -715,7 +734,7 @@ class GroqProvider(AIProvider):
                 strengths=_extract_list(data.get("strengths", [])),
                 improvements=_extract_list(data.get("improvements", [])),
                 detailed_feedback=detailed_fb,
-                performance_debrief=data.get("performance_debrief", "Debrief not available.")
+                performance_debrief=data.get("performance_debrief") or "Debrief not available."
             )
         except Exception as e:
             logger.error(f"Groq Rating error: {e}. Falling back to HuggingFace.")
@@ -736,7 +755,8 @@ class GroqProvider(AIProvider):
                 messages=[
                     {"role": "system", "content": EVALUATE_REPLY_PROMPT},
                     {"role": "user", "content": prompt}
-                ]
+                ],
+                timeout=_SETTINGS.llm_reply_timeout_seconds
             )
             data = _safe_json_loads(response.choices[0].message.content)
             return ReplyEvaluation(
@@ -775,7 +795,7 @@ class OllamaProvider(AIProvider):
                 res = await client.post(
                     f"{self.base_url}/api/chat",
                     json={"model": self.model, "messages": messages, "stream": False},
-                    timeout=30.0
+                    timeout=_SETTINGS.llm_reply_timeout_seconds
                 )
                 res.raise_for_status()
                 reply = res.json()["message"]["content"]
@@ -807,7 +827,7 @@ class OllamaProvider(AIProvider):
                 res = await client.post(
                     f"{self.base_url}/api/chat",
                     json={"model": self.model, "messages": messages, "stream": False},
-                    timeout=30.0
+                    timeout=_SETTINGS.llm_reply_timeout_seconds
                 )
                 res.raise_for_status()
                 reply = res.json()["message"]["content"]
@@ -836,9 +856,9 @@ class OllamaProvider(AIProvider):
                         ], 
                         "stream": False,
                         "format": "json", # Ollama supports strict JSON mode
-                        "options": {"temperature": 0}
+                        "options": {"temperature": 0, "num_predict": 2000}
                     },
-                    timeout=60.0 # Ratings take longer
+                    timeout=_SETTINGS.llm_rate_timeout_seconds
                 )
                 res.raise_for_status()
                 data = _safe_json_loads(res.json()["message"]["content"])
@@ -852,7 +872,7 @@ class OllamaProvider(AIProvider):
                 strengths=_extract_list(data.get("strengths", [])),
                 improvements=_extract_list(data.get("improvements", [])),
                 detailed_feedback=detailed_fb,
-                performance_debrief=data.get("performance_debrief", "Debrief not available.")
+                performance_debrief=data.get("performance_debrief") or "Debrief not available."
             )
         except Exception as e:
             logger.error(f"Ollama Rating error: {e}")
@@ -875,7 +895,7 @@ class OllamaProvider(AIProvider):
                         "stream": False,
                         "format": "json"
                     },
-                    timeout=30.0
+                    timeout=_SETTINGS.llm_reply_timeout_seconds
                 )
                 res.raise_for_status()
                 data = _safe_json_loads(res.json()["message"]["content"])

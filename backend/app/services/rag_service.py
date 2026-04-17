@@ -17,6 +17,7 @@ class RagService:
             cls._instance.index = None
             cls._instance.question_ids = []
             cls._instance._init_lock = asyncio.Lock()
+            cls._instance._rebuild_lock = asyncio.Lock()
         return cls._instance
 
     async def _ensure_model(self):
@@ -62,7 +63,9 @@ class RagService:
         """Search questions with a distance threshold (lower is better for L2)."""
         if self.index is None or not self.question_ids:
             # Try to build if empty
-            await self.rebuild_index()
+            async with self._rebuild_lock:
+                if self.index is None or not self.question_ids:
+                    await self.rebuild_index()
             if self.index is None:
                 return []
 

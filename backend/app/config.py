@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     
     session_time_limit_seconds: int = 180  # 3 minutes
 
+    # Performance & Concurrency Limits
+    llm_reply_timeout_seconds: float = 15.0
+    llm_rate_timeout_seconds: float = 60.0
+    ws_queue_max_size: int = 50
+
     # Whisper / STT backup
     whisper_api_key: Optional[str] = None
 
