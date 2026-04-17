@@ -7,22 +7,22 @@ type Props = {
 export function ScoreBadge({ score }: Props) {
   if (score == null) {
     return (
-      <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-        N/A
+      <span className="inline-flex items-center rounded-md bg-slate-50 border border-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+        —
       </span>
     );
   }
 
-  const color =
-    score >= 80 ? "bg-emerald-500/20 text-emerald-300" : score >= 60
-    ? "bg-amber-500/20 text-amber-300"
-    : "bg-red-500/20 text-red-300";
+  const styles =
+    score >= 80 ? "bg-emerald-50 text-emerald-600 border-emerald-100/50" : score >= 60
+    ? "bg-amber-50 text-amber-600 border-amber-100/50"
+    : "bg-red-50 text-red-600 border-red-100/50";
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold border ${styles}`}
     >
-      {score}
+      {score}%
     </span>
   );
 }

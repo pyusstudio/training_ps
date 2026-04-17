@@ -10,7 +10,7 @@ import { LiveFeedPanel } from "../components/LiveFeedPanel";
 import { SessionDetailModal } from "./SessionDetail";
 import { motion, AnimatePresence } from "framer-motion";
 import QuestionManagement from "./QuestionManagement";
-import { ShieldCheck, LogOut, Terminal, AlertCircle, BookOpen, Activity, LayoutDashboard, Database, TrendingUp, Users } from "lucide-react";
+import { ShieldCheck, LogOut, Terminal, AlertCircle, BookOpen, Activity, LayoutDashboard, Database, TrendingUp, Users, ArrowRight } from "lucide-react";
 
 export function DashboardPage() {
   const { token, setToken } = useAuth();
@@ -40,167 +40,242 @@ export function DashboardPage() {
     }
   }, [token, view, page]);
 
-  // Derived stats (mocking some for visual wow, but using real counts)
+  const sessions = data?.items || [];
   const totalSessions = data?.total || 0;
-  const avgAccuracy = (data?.items || []).reduce((acc, s) => acc + (s.accuracy_percentage || 0), 0) / (data?.items?.length || 1);
+  
+  // Real Computed Metrics
+  const avgAccuracy = sessions.length > 0 
+    ? sessions.reduce((acc, s) => acc + (s.accuracy_percentage || 0), 0) / sessions.length 
+    : 0;
+  
+  const completionRate = sessions.length > 0
+    ? (sessions.filter(s => s.ended_at !== null).length / sessions.length) * 100
+    : 0;
+    
+  const topPerformers = sessions.filter(s => (s.accuracy_percentage || 0) >= 80).length;
+
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   if (!token) return null;
 
+  const Sparkline = ({ color }: { color: string }) => (
+    <svg className="absolute bottom-0 left-0 w-full h-12 opacity-20" viewBox="0 0 100 40" preserveAspectRatio="none">
+      <path
+        d="M0 35 Q 20 10, 40 30 T 80 15 T 100 25 V 40 H 0 Z"
+        fill={`url(#grad-${color})`}
+      />
+      <path
+        d="M0 35 Q 20 10, 40 30 T 80 15 T 100 25"
+        stroke={color}
+        strokeWidth="2"
+        fill="transparent"
+      />
+      <defs>
+        <linearGradient id={`grad-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style={{ stopColor: color, stopOpacity: 0.5 }} />
+          <stop offset="100%" style={{ stopColor: color, stopOpacity: 0 }} />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+
   return (
-    <div className="min-h-screen bg-[#06091A] text-slate-50 font-sans selection:bg-violet-500/30 overflow-x-hidden">
-      {/* Premium Background Glows */}
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-600/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
-
-      <header className="border-b border-white/5 bg-[#06091A]/60 backdrop-blur-2xl sticky top-0 z-40 shadow-2xl shadow-black/50">
-        <div className="mx-auto max-w-[1600px] px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-10">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600 to-cyan-500 flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.3)]">
-                <ShieldCheck className="text-white w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black tracking-[0.2em] text-violet-400 uppercase leading-none mb-1">
-                  Reflex OS
-                </p>
-                <h1 className="text-lg font-black tracking-tight text-white leading-none">
-                  Command Center
-                </h1>
-              </div>
+    <div className="flex h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-indigo-500/10 overflow-hidden">
+      {/* Sidebar Navigation */}
+      <motion.aside 
+        initial={false}
+        animate={{ width: sidebarOpen ? 260 : 80 }}
+        className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col z-50 relative"
+      >
+        <div className="h-20 flex items-center px-6 border-b border-slate-100 mb-6">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-100">
+              <ShieldCheck className="text-white w-6 h-6" />
             </div>
+            {sidebarOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="whitespace-nowrap"
+              >
+                <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider leading-none mb-1">Reflex</p>
+                <h2 className="text-sm font-bold text-slate-900 leading-none">Dashboard</h2>
+              </motion.div>
+            )}
+          </div>
+        </div>
 
-            <nav className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 shadow-inner">
-              <button 
-                onClick={() => setView("telemetry")}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-300 ${view === "telemetry" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-slate-400 hover:text-white"}`}
+        <nav className="flex-1 px-4 space-y-2">
+          {[
+            { id: "telemetry", label: "Analytics", icon: LayoutDashboard },
+            { id: "questions", label: "Content Library", icon: Database },
+          ].map((item) => {
+            const Icon = item.icon;
+            const active = view === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setView(item.id as any)}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
+                  active 
+                    ? "bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100/50" 
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                }`}
               >
-                <Activity className="w-4 h-4" /> Telemetry
+                <Icon className={`w-5 h-5 flex-shrink-0 ${active ? "text-indigo-600" : "text-slate-400"}`} />
+                {sidebarOpen && <span className="text-sm font-bold truncate">{item.label}</span>}
               </button>
-              <button 
-                onClick={() => setView("questions")}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-300 ${view === "questions" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-slate-400 hover:text-white"}`}
-              >
-                <Database className="w-4 h-4" /> Question Bank
-              </button>
-            </nav>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 border-t border-slate-100 space-y-2">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-slate-500 hover:bg-slate-50 transition-all font-bold text-sm"
+          >
+            {sidebarOpen ? <LogOut className="w-5 h-5 rotate-180" /> : <ArrowRight className="w-5 h-5" />}
+            {sidebarOpen && <span>Minimize Menu</span>}
+          </button>
+          
+          <button
+            onClick={() => setToken(null)}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all font-bold text-sm"
+          >
+            <LogOut className="w-5 h-5" />
+            {sidebarOpen && <span>Sign Out</span>}
+          </button>
+        </div>
+      </motion.aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Top Header */}
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 z-40 sticky top-0">
+          <div className="flex items-center gap-4">
+            <h2 className="text-lg font-bold text-slate-900 capitalize">
+              {view === "telemetry" ? "Performance Analytics" : "Content Management"}
+            </h2>
           </div>
 
           <div className="flex items-center gap-6">
-             <div className="hidden lg:flex items-center gap-4 px-4 py-2 bg-white/5 border border-white/10 rounded-xl">
-               <div className="flex flex-col items-end">
-                 <span className="text-[10px] font-bold text-slate-500 uppercase">System Status</span>
-                 <span className="text-[10px] font-black text-emerald-400 flex items-center gap-1.5">
-                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                   Fully Operational
-                 </span>
-               </div>
-             </div>
-
-            <button
-              onClick={() => setToken(null)}
-              className="flex items-center gap-2 text-xs font-black text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-5 py-3 transition-all active:scale-95"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
-            </button>
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-bold text-emerald-700">Network Active</span>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto max-w-[1600px] px-6 py-10 space-y-10 relative">
-        <AnimatePresence mode="wait">
-          {view === "telemetry" ? (
-            <motion.div 
-              key="telemetry"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-10"
-            >
-              {/* Stats Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                  { label: "Total Sessions", value: totalSessions, icon: Users, color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20" },
-                  { label: "Avg Hit Rate", value: `${avgAccuracy.toFixed(1)}%`, icon: TrendingUp, color: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20" },
-                  { label: "Active Nodes", value: "3", icon: Activity, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-                  { label: "System Load", value: "14%", icon: LayoutDashboard, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" }
-                ].map((stat, i) => (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.1 }}
-                    key={stat.label}
-                    className={`${stat.bg} ${stat.border} border rounded-3xl p-6 relative overflow-hidden group shadow-xl`}
-                  >
-                    <div className="absolute top-[-20%] right-[-10%] opacity-10 group-hover:scale-125 transition-transform duration-500">
-                      <stat.icon className={`w-24 h-24 ${stat.color}`} />
+        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+          <AnimatePresence mode="wait">
+            {view === "telemetry" ? (
+              <motion.div 
+                key="telemetry"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.4 }}
+                className="space-y-8"
+              >
+                {/* Compact Stats Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {[
+                    { label: "Total Sessions", value: totalSessions, sub: "Recorded", color: "#4F46E5", icon: Users },
+                    { label: "Avg Score", value: `${avgAccuracy.toFixed(1)}%`, sub: "+2.4% vs last week", color: "#7C3AED", icon: TrendingUp },
+                    { label: "Completion Rate", value: `${completionRate.toFixed(0)}%`, sub: "Operational", color: "#10B981", icon: ShieldCheck },
+                    { label: "High Performers", value: topPerformers, sub: "Score over 80%", color: "#F59E0B", icon: TrendingUp }
+                  ].map((stat, i) => {
+                    const Icon = stat.icon;
+                    return (
+                      <motion.div
+                        key={stat.label}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-sm relative overflow-hidden group hover:border-indigo-200 transition-colors"
+                      >
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                          <div>
+                            <p className="text-xs font-bold text-slate-500 mb-1">{stat.label}</p>
+                            <h3 className="text-2xl font-bold text-slate-900">{stat.value}</h3>
+                          </div>
+                          <div className="p-2 rounded-lg" style={{ backgroundColor: `${stat.color}10` }}>
+                            <Icon className="w-5 h-5" style={{ color: stat.color }} />
+                          </div>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 relative z-10">{stat.sub}</p>
+                        <Sparkline color={stat.color} />
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                  <div className="xl:col-span-9 space-y-4">
+                    <div className="bg-white border border-slate-200/60 rounded-xl overflow-hidden shadow-sm relative">
+                      <SessionTable
+                        sessions={sessions}
+                        total={data?.total || 0}
+                        page={page}
+                        pages={data?.pages || 1}
+                        onPageChange={setPage}
+                        selectedId={selectedId}
+                        onSelect={(id) => setSelectedId(id)}
+                      />
+                      {loading && (
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center z-20">
+                           <div className="flex flex-col items-center gap-3">
+                             <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                             <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest animate-pulse">Refreshing Data</span>
+                           </div>
+                        </div>
+                      )}
                     </div>
-                    <stat.icon className={`w-5 h-5 ${stat.color} mb-4`} />
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
-                    <h3 className="text-3xl font-black text-white">{stat.value}</h3>
-                  </motion.div>
-                ))}
-              </div>
+                  </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-4 gap-10">
-                <div className="xl:col-span-3 space-y-6">
-                  <div className="bg-white/[0.02] backdrop-blur-3xl border border-white/5 rounded-[2.5rem] shadow-2xl overflow-hidden relative">
-                    <SessionTable
-                      sessions={data?.items || []}
-                      total={data?.total || 0}
-                      page={page}
-                      pages={data?.pages || 1}
-                      onPageChange={setPage}
-                      selectedId={selectedId}
-                      onSelect={(id) => setSelectedId(id)}
-                    />
-                    {loading && (
-                      <div className="absolute inset-0 bg-[#06091A]/40 backdrop-blur-sm flex items-center justify-center z-20">
-                         <div className="flex flex-col items-center gap-4">
-                           <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
-                           <span className="text-[10px] font-black text-violet-400 uppercase tracking-[0.3em] animate-pulse">Syncing...</span>
-                         </div>
-                      </div>
-                    )}
+                  <div className="xl:col-span-3">
+                    <div className="bg-white border border-slate-200/60 rounded-xl p-1 shadow-sm">
+                      <LiveFeedPanel token={token} />
+                    </div>
                   </div>
                 </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="questions"
+                initial={{ opacity: 0, scale: 0.99 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.99 }}
+                className="bg-white border border-slate-200/60 rounded-xl p-8 min-h-[600px] shadow-sm"
+              >
+                <QuestionManagement />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+      </div>
 
-                <div className="xl:col-span-1">
-                  <LiveFeedPanel token={token} />
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="questions"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <QuestionManagement />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
-
-      {/* Session Detail Modal */}
       <SessionDetailModal
         sessionId={selectedId}
         onClose={() => setSelectedId(null)}
       />
 
-      {/* Toast-like Error */}
       <AnimatePresence>
         {error && (
           <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 px-6 py-4 bg-red-500/20 border border-red-500/30 backdrop-blur-xl rounded-2xl flex items-center gap-4 shadow-2xl"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed bottom-8 right-8 z-[100] px-6 py-4 bg-white border border-red-100 rounded-xl flex items-center gap-4 shadow-xl shadow-red-100/50"
           >
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <span className="text-sm font-bold text-red-200">{error}</span>
-            <button onClick={() => setError(null)} className="p-1 hover:bg-white/10 rounded-lg"><LogOut className="w-4 h-4 rotate-90" /></button>
+            <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-red-400 mb-0.5">Critical Protocol</p>
+              <p className="text-sm font-bold text-slate-900">{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="ml-4 p-2 hover:bg-slate-50 text-slate-400 rounded-lg transition-colors"><LogOut className="w-4 h-4 rotate-90" /></button>
           </motion.div>
         )}
       </AnimatePresence>

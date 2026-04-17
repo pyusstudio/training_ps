@@ -1038,7 +1038,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e2ac0381822c86d44a0d5a06774065e8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeepgramManager
-  apiKey: be9119ec4752b1ad9244fd3cd9124f6bf5d088be
+  apiKey: f9fd9071987a2f9ca81ad0b3db833fe304c65254
   ttsModel: aura-asteria-en
   sttModel: nova-2
   audioSource: {fileID: 1633649048}
